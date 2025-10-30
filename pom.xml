@@ -1,166 +1,347 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-  <groupId>org.example</groupId>
-  <artifactId>robot-3d-java</artifactId>
-  <version>1.0-SNAPSHOT</version>
+    <modelVersion>4.0.0</modelVersion>
 
-  <name>robot-3d-java</name>
-  <!-- FIXME change it to the project's website -->
-  <url>http://www.example.com</url>
+    <!-- ========================================= -->
+    <!-- Informations du Projet                   -->
+    <!-- ========================================= -->
+    <groupId>com.museum</groupId>
+    <artifactId>museum-3d-app</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
 
+    <name>Musée 3D - Louvre Virtual Tour</name>
+    <description>Application 3D immersive d'un musée inspiré du Louvre avec JMonkeyEngine</description>
+
+    <!-- ========================================= -->
+    <!-- Propriétés du Projet                     -->
+    <!-- ========================================= -->
     <properties>
+        <!-- Versions Java -->
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>21</maven.compiler.release>
-        <geotools.version>28.5</geotools.version>
-        <jmonkey.version>3.7.0-stable</jmonkey.version>
+
+        <!-- Versions des dépendances -->
+        <jme3.version>3.6.1-stable</jme3.version>
+        <lemur.version>1.16.0</lemur.version>
+        <slf4j.version>2.0.9</slf4j.version>
+
+        <!-- Classe principale -->
+        <main.class>com.museum.app.JmeApp</main.class>
     </properties>
 
+    <!-- ========================================= -->
+    <!-- Repositories                              -->
+    <!-- ========================================= -->
     <repositories>
+        <!-- Repository JCenter pour JMonkeyEngine -->
         <repository>
-            <id>osgeo</id>
-            <name>OSGeo Release Repository</name>
-            <url>https://repo.osgeo.org/repository/release/</url>
+            <id>jcenter</id>
+            <url>https://jcenter.bintray.com</url>
         </repository>
+
+        <!-- Repository Maven Central (backup) -->
         <repository>
             <id>central</id>
-            <name>Maven Central</name>
             <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+
+        <!-- Repository pour Lemur -->
+        <repository>
+            <id>sonatype-snapshots</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
         </repository>
     </repositories>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.junit</groupId>
-                <artifactId>junit-bom</artifactId>
-                <version>5.11.0</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
-
+    <!-- ========================================= -->
+    <!-- Dépendances                               -->
+    <!-- ========================================= -->
     <dependencies>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <!-- Optionally: parameterized tests support -->
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-            <scope>test</scope>
-        </dependency>
 
-        <!-- GeoTools Core Dependencies -->
-        <dependency>
-            <groupId>org.geotools</groupId>
-            <artifactId>gt-epsg-hsql</artifactId>
-            <version>${geotools.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.geotools</groupId>
-            <artifactId>gt-geojson</artifactId>
-            <version>${geotools.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.geotools</groupId>
-            <artifactId>gt-main</artifactId>
-            <version>${geotools.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.geotools</groupId>
-            <artifactId>gt-shapefile</artifactId>
-            <version>${geotools.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.geotools</groupId>
-            <artifactId>gt-referencing</artifactId>
-            <version>${geotools.version}</version>
-        </dependency>
-
-
-        <!-- jMonkeyEngine 3 -->
+        <!-- ============ JMonkeyEngine Core ============ -->
+        <!-- Moteur 3D principal -->
         <dependency>
             <groupId>org.jmonkeyengine</groupId>
             <artifactId>jme3-core</artifactId>
-            <version>${jmonkey.version}</version>
+            <version>${jme3.version}</version>
         </dependency>
+
+        <!-- ============ JMonkeyEngine Desktop ============ -->
+        <!-- Support LWJGL pour fenêtre desktop -->
         <dependency>
             <groupId>org.jmonkeyengine</groupId>
             <artifactId>jme3-desktop</artifactId>
-            <version>${jmonkey.version}</version>
+            <version>${jme3.version}</version>
         </dependency>
+
+        <!-- ============ JMonkeyEngine LWJGL ============ -->
+        <!-- Backend LWJGL (OpenGL) -->
         <dependency>
             <groupId>org.jmonkeyengine</groupId>
             <artifactId>jme3-lwjgl3</artifactId>
-            <version>${jmonkey.version}</version>
+            <version>${jme3.version}</version>
         </dependency>
 
+        <!-- ============ JMonkeyEngine Plugins ============ -->
+        <!-- Plugin pour charger des modèles .obj -->
         <dependency>
             <groupId>org.jmonkeyengine</groupId>
             <artifactId>jme3-plugins</artifactId>
-            <version>${jmonkey.version}</version>
+            <version>${jme3.version}</version>
         </dependency>
 
-        <!-- Lemur GUI -->
+        <!-- ============ JMonkeyEngine Effects ============ -->
+        <!-- Effets visuels (particules, post-processing) -->
+        <dependency>
+            <groupId>org.jmonkeyengine</groupId>
+            <artifactId>jme3-effects</artifactId>
+            <version>${jme3.version}</version>
+        </dependency>
+
+        <!-- ============ JMonkeyEngine Terrain ============ -->
+        <!-- Système de terrain (optionnel pour extérieur) -->
+        <dependency>
+            <groupId>org.jmonkeyengine</groupId>
+            <artifactId>jme3-terrain</artifactId>
+            <version>${jme3.version}</version>
+        </dependency>
+
+        <!-- ============ Lemur UI ============ -->
+        <!-- Système d'interface utilisateur -->
         <dependency>
             <groupId>com.simsilica</groupId>
             <artifactId>lemur</artifactId>
-            <version>1.16.0</version>
+            <version>${lemur.version}</version>
+        </dependency>
+
+        <!-- ============ Lemur Proto (styles) ============ -->
+        <!-- Styles et composants supplémentaires pour Lemur -->
+        <dependency>
+            <groupId>com.simsilica</groupId>
+            <artifactId>lemur-proto</artifactId>
+            <version>${lemur.version}</version>
+        </dependency>
+
+        <!-- ============ Groovy (requis par Lemur) ============ -->
+        <!-- Moteur de scripting pour les styles Lemur -->
+        <dependency>
+            <groupId>org.codehaus.groovy</groupId>
+            <artifactId>groovy-all</artifactId>
+            <version>3.0.19</version>
+            <type>pom</type>
+        </dependency>
+
+        <!-- ============ SLF4J (Logging) ============ -->
+        <!-- API de logging utilisée par JME3 -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+
+        <!-- Implémentation Simple de SLF4J -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+
+        <!-- ============ JUnit (Tests) ============ -->
+        <!-- Framework de tests unitaires -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.0</version>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>
 
-  <build>
-    <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (moved to parent pom) -->
-      <plugins>
-        <!-- clean lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#clean_Lifecycle -->
-        <plugin>
-          <artifactId>maven-clean-plugin</artifactId>
-          <version>3.4.0</version>
-        </plugin>
-        <!-- default lifecycle, jar packaging: see https://maven.apache.org/ref/current/maven-core/default-bindings.html#Plugin_bindings_for_jar_packaging -->
-        <plugin>
-          <artifactId>maven-resources-plugin</artifactId>
-          <version>3.3.1</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.13.0</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.3.0</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-jar-plugin</artifactId>
-          <version>3.4.2</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-install-plugin</artifactId>
-          <version>3.1.2</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-deploy-plugin</artifactId>
-          <version>3.1.2</version>
-        </plugin>
-        <!-- site lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#site_Lifecycle -->
-        <plugin>
-          <artifactId>maven-site-plugin</artifactId>
-          <version>3.12.1</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-project-info-reports-plugin</artifactId>
-          <version>3.6.1</version>
-        </plugin>
-      </plugins>
-    </pluginManagement>
-  </build>
+    <!-- ========================================= -->
+    <!-- Build Configuration                       -->
+    <!-- ========================================= -->
+    <build>
+        <plugins>
+
+            <!-- ============ Maven Compiler Plugin ============ -->
+            <!-- Configuration de la compilation Java -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>11</source>
+                    <target>11</target>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+
+            <!-- ============ Maven Jar Plugin ============ -->
+            <!-- Configuration du JAR exécutable -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>lib/</classpathPrefix>
+                            <mainClass>${main.class}</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!-- ============ Maven Shade Plugin ============ -->
+            <!-- Création d'un JAR avec toutes les dépendances (fat JAR) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>${main.class}</mainClass>
+                                </transformer>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <finalName>museum-3d-${project.version}</finalName>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- ============ Maven Resources Plugin ============ -->
+            <!-- Copie des ressources (textures, modèles, etc.) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <configuration>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+
+            <!-- ============ Exec Maven Plugin ============ -->
+            <!-- Pour exécuter l'application avec: mvn exec:java -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <mainClass>${main.class}</mainClass>
+                </configuration>
+            </plugin>
+
+            <!-- ============ Maven Surefire Plugin ============ -->
+            <!-- Pour exécuter les tests unitaires -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.1.2</version>
+            </plugin>
+
+            <!-- ============ Maven Assembly Plugin ============ -->
+            <!-- Pour créer une distribution complète -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.6.0</version>
+                <configuration>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                    <archive>
+                        <manifest>
+                            <mainClass>${main.class}</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+
+        <!-- ============ Resources Directory ============ -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>**/*</include>
+                </includes>
+            </resource>
+        </resources>
+
+    </build>
+
+    <!-- ========================================= -->
+    <!-- Profiles (optionnel)                      -->
+    <!-- ========================================= -->
+    <profiles>
+
+        <!-- Profile de développement -->
+        <profile>
+            <id>dev</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <jme3.showSettings>true</jme3.showSettings>
+            </properties>
+        </profile>
+
+        <!-- Profile de production -->
+        <profile>
+            <id>prod</id>
+            <properties>
+                <jme3.showSettings>false</jme3.showSettings>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <optimize>true</optimize>
+                            <debug>false</debug>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+    </profiles>
+
 </project>
