@@ -87,37 +87,79 @@ public class SceneManager {
      */
 
     private void createWalls() {
-        // Mur gauche - Beige chaud
+        // Mur gauche - Texture brique
         createWall("WallLeft", WALL_THICKNESS, GALLERY_HEIGHT, GALLERY_LENGTH,
-                -GALLERY_WIDTH / 2, GALLERY_HEIGHT / 2, 0, COLOR_WALL_WARM);
+                -GALLERY_WIDTH / 2, GALLERY_HEIGHT / 2, 0, "Textures/Wall/brick_wall.jpg");
 
-        // Mur droit - Beige chaud
+        // Mur droit - Texture brique
         createWall("WallRight", WALL_THICKNESS, GALLERY_HEIGHT, GALLERY_LENGTH,
-                GALLERY_WIDTH / 2, GALLERY_HEIGHT / 2, 0, COLOR_WALL_WARM);
+                GALLERY_WIDTH / 2, GALLERY_HEIGHT / 2, 0, "Textures/Wall/brick_wall_red.jpg");
 
-        // Mur du fond - Blanc cassé
+        // Mur du fond - Texture plâtre blanc
         createWall("WallBack", GALLERY_WIDTH, GALLERY_HEIGHT, WALL_THICKNESS,
-                0, GALLERY_HEIGHT / 2, -GALLERY_LENGTH / 2, COLOR_WALL_WHITE);
+                0, GALLERY_HEIGHT / 2, -GALLERY_LENGTH / 2, "Textures/Wall/white_plaster.png");
 
-        // Mur d'entrée - Blanc cassé (avec ouverture future)
+        // Mur d'entrée - Texture béton
         createWall("WallFront", GALLERY_WIDTH, GALLERY_HEIGHT, WALL_THICKNESS,
-                0, GALLERY_HEIGHT / 2, GALLERY_LENGTH / 2, COLOR_WALL_WHITE);
+                0, GALLERY_HEIGHT / 2, GALLERY_LENGTH / 2, "Textures/Wall/concrete.jpg");
     }
 
-    // VOTRE MÉTHODE ORIGINALE - SANS TEXTURES
+    /**
+     * Crée un mur AVEC TEXTURE
+     */
     private void createWall(String name, float width, float height, float depth,
-                            float x, float y, float z, ColorRGBA color) {
+                            float x, float y, float z, String texturePath) {
         Box wallBox = new Box(width / 2, height / 2, depth / 2);
         Geometry wall = new Geometry(name, wallBox);
         Material mat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
-        mat.setColor("Diffuse", color);
-        mat.setColor("Ambient", color);
-        mat.setBoolean("UseMaterialColors", true);
+
+        try {
+            // Charger la texture PNG
+            Texture texture = assetManager.loadTexture(texturePath);
+            mat.setTexture("DiffuseMap", texture);
+
+            // Ajuster l'échelle de la texture selon la taille du mur
+            float textureScale = calculateTextureScale(width, height);
+            mat.setFloat("TexScale", textureScale);
+
+            mat.setBoolean("UseMaterialColors", true);
+            mat.setColor("Diffuse", ColorRGBA.White); // Couleur blanche pour que la texture apparaisse correctement
+            mat.setColor("Ambient", ColorRGBA.Gray);
+
+            System.out.println("✅ Texture chargée: " + texturePath);
+
+        } catch (Exception e) {
+            // Si la texture n'est pas trouvée, utiliser une couleur par défaut
+            System.out.println("❌ Texture non trouvée: " + texturePath + " - Utilisation couleur par défaut");
+
+            // Couleurs par défaut selon le nom du mur
+            ColorRGBA fallbackColor;
+            if (name.contains("Left") || name.contains("Right")) {
+                fallbackColor = COLOR_WALL_WARM;
+            } else {
+                fallbackColor = COLOR_WALL_WHITE;
+            }
+
+            mat.setColor("Diffuse", fallbackColor);
+            mat.setColor("Ambient", fallbackColor);
+            mat.setBoolean("UseMaterialColors", true);
+        }
+
         wall.setMaterial(mat);
         wall.setLocalTranslation(x, y, z);
         galleryNode.attachChild(wall);
+    }
 
-        System.out.println("✅ Mur créé: " + name + " - Couleur: " + color);
+    /**
+     * Calcule l'échelle de texture appropriée selon la taille du mur
+     */
+    private float calculateTextureScale(float width, float height) {
+        // Pour les murs latéraux (longs et étroits)
+        if (width < height) {
+            return 4.0f; // Plus de répétition pour les murs longs
+        }
+        // Pour les murs avant/arrière (larges)
+        return 2.0f; // Moins de répétition pour les murs larges
     }
 
     /**
