@@ -9,8 +9,20 @@ import com.jme3.input.controls.AnalogListener;
 import com.jme3.input.controls.KeyTrigger;
 import com.jme3.input.controls.MouseAxisTrigger;
 import com.jme3.input.controls.MouseButtonTrigger;
+import com.jme3.light.AmbientLight;
+import com.jme3.light.DirectionalLight;
+import com.jme3.material.Material;
+import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
+import com.jme3.scene.Geometry;
 import com.jme3.system.AppSettings;
+import com.jme3.system.JmeCanvasContext;
+
+import javax.imageio.ImageIO;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
 
 
 /**
@@ -22,7 +34,7 @@ public class JmeApp extends SimpleApplication {
     private float walkSpeed = 10f;
     private boolean moveForward, moveBackward, moveLeft, moveRight;
 
-    public static void main(String[] args) {
+    public static void main() {
         JmeApp app = new JmeApp();
 
         // Configuration de l'application
@@ -32,6 +44,18 @@ public class JmeApp extends SimpleApplication {
         settings.setFullscreen(false);
         settings.setVSync(true);
         settings.setSamples(4); // Anti-aliasing
+
+        try{
+            BufferedImage[] icons = new BufferedImage[]{
+                    ImageIO.read(new File("src/main/resources/Textures/museum-16.png")),
+                    ImageIO.read(new File("src/main/resources/Textures/museum-32.png"))
+            };
+            settings.setIcons(icons);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+//        settings.setFullscreen(true);
 
         app.setSettings(settings);
         app.setShowSettings(false); // Ne pas afficher le panneau de config au démarrage
@@ -56,6 +80,7 @@ public class JmeApp extends SimpleApplication {
 
         // Cacher le curseur pour une expérience immersive
         inputManager.setCursorVisible(false);
+
     }
 
     /**
@@ -143,4 +168,7 @@ public class JmeApp extends SimpleApplication {
             cam.setLocation(new Vector3f(camPos.x, 8f, camPos.z));
         }
     }
+
+
+
 }

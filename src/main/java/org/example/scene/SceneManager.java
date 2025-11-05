@@ -8,6 +8,7 @@ import com.jme3.light.SpotLight;
 import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.FastMath;
+import com.jme3.math.Vector2f;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
@@ -88,19 +89,19 @@ public class SceneManager {
     private void createWalls() {
         // Mur gauche - Texture brique
         createWall("WallLeft", WALL_THICKNESS, GALLERY_HEIGHT, GALLERY_LENGTH,
-                -GALLERY_WIDTH / 2, GALLERY_HEIGHT / 2, 0, "Textures/Wall/brick_wall.jpg");
+                -GALLERY_WIDTH / 2, GALLERY_HEIGHT / 2, 0, "Textures/wall_marble.png");
 
         // Mur droit - Texture brique
         createWall("WallRight", WALL_THICKNESS, GALLERY_HEIGHT, GALLERY_LENGTH,
-                GALLERY_WIDTH / 2, GALLERY_HEIGHT / 2, 0, "Textures/Wall/brick_wall_red.jpg");
+                GALLERY_WIDTH / 2, GALLERY_HEIGHT / 2, 0, "Textures/wall_marble.png");
 
         // Mur du fond - Texture plâtre blanc
         createWall("WallBack", GALLERY_WIDTH, GALLERY_HEIGHT, WALL_THICKNESS,
-                0, GALLERY_HEIGHT / 2, -GALLERY_LENGTH / 2, "Textures/Wall/white_plaster.png");
+                0, GALLERY_HEIGHT / 2, -GALLERY_LENGTH / 2, "Textures/decore_marble_floor.png");
 
         // Mur d'entrée - Texture béton
         createWall("WallFront", GALLERY_WIDTH, GALLERY_HEIGHT, WALL_THICKNESS,
-                0, GALLERY_HEIGHT / 2, GALLERY_LENGTH / 2, "Textures/Wall/concrete.jpg");
+                0, GALLERY_HEIGHT / 2, GALLERY_LENGTH / 2, "Textures/decore_marble_floor.png");
     }
 
     /**
@@ -115,20 +116,24 @@ public class SceneManager {
         try {
             // Charger la texture PNG
             Texture texture = assetManager.loadTexture(texturePath);
+            texture.setWrap(Texture.WrapMode.Repeat); // permet la répétition
             mat.setTexture("DiffuseMap", texture);
 
-            // Ajuster l'échelle de la texture selon la taille du mur
+            // Ajuster l’échelle de la texture selon la taille du mur
             float textureScale = calculateTextureScale(width, height);
-            mat.setFloat("TexScale", textureScale);
+
+            // Répéter la texture sur la surface du mur
+            wallBox.scaleTextureCoordinates(new Vector2f(textureScale, textureScale));
 
             mat.setBoolean("UseMaterialColors", true);
-            mat.setColor("Diffuse", ColorRGBA.White); // Couleur blanche pour que la texture apparaisse correctement
+            mat.setColor("Diffuse", ColorRGBA.White);
             mat.setColor("Ambient", ColorRGBA.Gray);
 
             System.out.println("✅ Texture chargée: " + texturePath);
 
         } catch (Exception e) {
             // Si la texture n'est pas trouvée, utiliser une couleur par défaut
+            e.printStackTrace();
             System.out.println("❌ Texture non trouvée: " + texturePath + " - Utilisation couleur par défaut");
 
             // Couleurs par défaut selon le nom du mur
@@ -148,6 +153,7 @@ public class SceneManager {
         wall.setLocalTranslation(x, y, z);
         galleryNode.attachChild(wall);
     }
+
 
     /**
      * Calcule l'échelle de texture appropriée selon la taille du mur
@@ -322,7 +328,7 @@ public class SceneManager {
                                 "painting3.jpg",
                                 "painting4.jpeg",
                                 "painting5.jpeg"
-                                };
+                        };
 
         // Tableaux mur gauche
         createPaintingWall(-GALLERY_WIDTH / 2 + 0.6f, true, paths_left);
@@ -332,7 +338,7 @@ public class SceneManager {
                                 "painting8.jpeg",
                                 "painting9.jpg",
                                 "painting10.jpg"
-                              };
+                        };
 
         // Tableaux mur droit
         createPaintingWall(GALLERY_WIDTH / 2 - 0.6f, false, paths_right);
