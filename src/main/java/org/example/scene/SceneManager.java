@@ -12,9 +12,11 @@ import com.jme3.math.Vector2f;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
+import com.jme3.scene.plugins.gltf.GltfLoader;
 import com.jme3.scene.shape.Box;
 import com.jme3.scene.shape.Quad;
 import com.jme3.texture.Texture;
+import org.example.robot.RobotManager;
 
 /**
  * Gestionnaire de scène pour le musée 3D du Louvre
@@ -44,6 +46,7 @@ public class SceneManager {
         this.rootNode = app.getRootNode();
         this.galleryNode = new Node("GalleryNode");
         rootNode.attachChild(galleryNode);
+
     }
 
     /**
@@ -59,6 +62,7 @@ public class SceneManager {
         createBenches();
         createPedestals();
         createStaircase();
+        createRobot();
     }
 
     /**
@@ -129,12 +133,12 @@ public class SceneManager {
             mat.setColor("Diffuse", ColorRGBA.White);
             mat.setColor("Ambient", ColorRGBA.Gray);
 
-            System.out.println("✅ Texture chargée: " + texturePath);
+            System.out.println("Texture chargée: " + texturePath);
 
         } catch (Exception e) {
             // Si la texture n'est pas trouvée, utiliser une couleur par défaut
             e.printStackTrace();
-            System.out.println("❌ Texture non trouvée: " + texturePath + " - Utilisation couleur par défaut");
+            System.out.println("Texture non trouvée: " + texturePath + " - Utilisation couleur par défaut");
 
             // Couleurs par défaut selon le nom du mur
             ColorRGBA fallbackColor;
@@ -520,6 +524,10 @@ public class SceneManager {
 
         stairNode.setLocalTranslation(15f, 0, 25f);
         galleryNode.attachChild(stairNode);
+    }
+
+    public void createRobot(){
+        new RobotManager(this.app).setRobot(rootNode);
     }
 
     /**

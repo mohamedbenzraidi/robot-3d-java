@@ -3,6 +3,7 @@ package org.example.scene;
 import javafx.application.Application;
 import javafx.embed.swing.SwingNode;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -43,14 +44,25 @@ public class GuiManager extends Application {
         startButton.setMaxWidth(Double.MAX_VALUE);
         startButton.setMaxHeight(50);
 
+        String btnStyle =  "-fx-background-color: #1A237E;" +
+                            "-fx-text-fill: white;" +
+                            "-fx-font-family: Arial;" +
+                            "-fx-font-weight: bold;" +
+                            "-fx-font-size: 24px;";
 
-        startButton.setStyle(
-                "-fx-background-color: #1A237E;" +
+        startButton.setStyle(btnStyle);
+
+        startButton.setCursor(Cursor.HAND);
+
+        startButton.setOnMouseEntered(e-> startButton.setStyle(
+                         "-fx-background-color: #303F9F;" +
                         "-fx-text-fill: white;" +
                         "-fx-font-family: Arial;" +
                         "-fx-font-weight: bold;" +
                         "-fx-font-size: 24px;"
-        );
+        ));
+
+        startButton.setOnMouseExited(e -> startButton.setStyle(btnStyle));
 
         VBox root = new VBox(20);
         root.setAlignment(Pos.CENTER);
