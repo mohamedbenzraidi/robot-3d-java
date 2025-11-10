@@ -18,6 +18,8 @@ import com.jme3.scene.Geometry;
 import com.jme3.system.AppSettings;
 import com.jme3.system.JmeCanvasContext;
 
+import com.jme3.scene.plugins.gltf.*;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
@@ -55,7 +57,7 @@ public class JmeApp extends SimpleApplication {
             e.printStackTrace();
         }
 
-//        settings.setFullscreen(true);
+        settings.setFullscreen(true);
 
         app.setSettings(settings);
         app.setShowSettings(false); // Ne pas afficher le panneau de config au démarrage
