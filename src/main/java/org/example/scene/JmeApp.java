@@ -39,7 +39,7 @@ public class JmeApp extends SimpleApplication {
 
         // Configuration de l'application
         AppSettings settings = new AppSettings(true);
-        settings.setTitle("Musée 3D - Louvre Virtual Tour");
+        settings.setTitle("Museum 3D - Virtual Tour");
         settings.setResolution(1920, 1080);
         settings.setFullscreen(false);
         settings.setVSync(true);
@@ -168,7 +168,6 @@ public class JmeApp extends SimpleApplication {
             cam.setLocation(new Vector3f(camPos.x, 8f, camPos.z));
         }
     }
-
 
 
 }

@@ -66,8 +66,10 @@ public class GuiManager extends Application {
         root.getChildren().addAll(imageView, title, startButton);
 
         primaryStage.setTitle("Museum Tour");
+        primaryStage.getIcons().add(new Image(new File("src/main/resources/Textures/museum-16.png").toURI().toString()));
         primaryStage.setScene(scene);
         primaryStage.show();
+        
     }
 
     public static void main(String[] args) {
