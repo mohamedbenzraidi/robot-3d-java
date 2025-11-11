@@ -16,18 +16,19 @@ import com.jme3.texture.Texture;
 public class RobotManager {
     private final SimpleApplication app;
     private final AssetManager assetManager;
+    private Spatial robot;
 
     public RobotManager(SimpleApplication app){
         this.app = app;
         this.assetManager = app.getAssetManager();
     }
 
-    public void setRobot(Node rootNode){
+    public void setRobot(Node rootNode, Vector3f position){
         try{
-            Spatial robot = this.assetManager.loadModel("Models/ai_robot.j3o");
+            robot = this.assetManager.loadModel("Models/ai_robot.j3o");
             robot.scale(5f);
-            robot.setLocalTranslation(0f, 1f, 0f);
-            robot.rotate(0, (float) Math.toRadians(180), 0);
+            robot.setLocalTranslation(position.add(new Vector3f(2f,-3f,-2f)));
+            robot.rotate(0, (float) Math.toRadians(-90), 0);
             rootNode.attachChild(robot);
 
 
@@ -38,6 +39,9 @@ public class RobotManager {
 
     }
 
+    public Spatial getRobot(){
+        return this.robot;
+    }
 
 
 }

@@ -169,6 +169,12 @@ public class JmeApp extends SimpleApplication {
         if (camPos.y > 8f) {
             cam.setLocation(new Vector3f(camPos.x, 8f, camPos.z));
         }
+
+        if(sceneManager.getRobot() != null){
+            Vector3f offsetPosition = new Vector3f(2f,-3f,-2f);
+            sceneManager.getRobot().setLocalTranslation(camPos.add(offsetPosition));
+        }
+
     }
 
 

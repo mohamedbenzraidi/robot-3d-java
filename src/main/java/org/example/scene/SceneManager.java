@@ -12,6 +12,7 @@ import com.jme3.math.Vector2f;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
+import com.jme3.scene.Spatial;
 import com.jme3.scene.plugins.gltf.GltfLoader;
 import com.jme3.scene.shape.Box;
 import com.jme3.scene.shape.Quad;
@@ -28,6 +29,8 @@ public class SceneManager {
     private final AssetManager assetManager;
     private final Node rootNode;
     private final Node galleryNode;
+    private RobotManager robotManager;
+    private Spatial robot;
 
     // Dimensions de la galerie
     private static final float GALLERY_WIDTH = 40f;
@@ -46,7 +49,6 @@ public class SceneManager {
         this.rootNode = app.getRootNode();
         this.galleryNode = new Node("GalleryNode");
         rootNode.attachChild(galleryNode);
-
     }
 
     /**
@@ -527,7 +529,9 @@ public class SceneManager {
     }
 
     public void createRobot(){
-        new RobotManager(this.app).setRobot(rootNode);
+        this.robotManager = new RobotManager(this.app);
+        this.robotManager.setRobot(rootNode, new Vector3f(0, 3f, 40f));
+        this.robot = this.robotManager.getRobot();
     }
 
     /**
@@ -536,4 +540,9 @@ public class SceneManager {
     public Node getGalleryNode() {
         return galleryNode;
     }
+
+    public Spatial getRobot(){
+        return this.robot;
+    }
+
 }
