@@ -22,6 +22,11 @@
 
     <repositories>
         <repository>
+            <id>jmonkeyengine</id>
+            <name>JMonkeyEngine Releases</name>
+            <url>https://updates.jmonkeyengine.org/maven</url>
+        </repository>
+        <repository>
             <id>osgeo</id>
             <name>OSGeo Release Repository</name>
             <url>https://repo.osgeo.org/repository/release/</url>
@@ -137,6 +142,8 @@
             <artifactId>lemur</artifactId>
             <version>1.16.0</version>
         </dependency>
+
+
 
         <!-- Optional but recommended: Lemur Proto (for extra widgets, styles, input bindings) -->
         <dependency>
