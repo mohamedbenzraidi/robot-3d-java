@@ -1,22 +1,25 @@
 package org.example.scene;
 
+import com.jme3.anim.AnimComposer;
 import com.jme3.app.SimpleApplication;
 import com.jme3.asset.AssetManager;
+import com.jme3.bounding.BoundingBox;
+import com.jme3.collision.CollisionResult;
+import com.jme3.collision.CollisionResults;
+import com.jme3.font.BitmapFont;
+import com.jme3.font.BitmapText;
 import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
 import com.jme3.light.SpotLight;
 import com.jme3.material.Material;
-import com.jme3.math.ColorRGBA;
-import com.jme3.math.FastMath;
-import com.jme3.math.Vector2f;
-import com.jme3.math.Vector3f;
+import com.jme3.math.*;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
-import com.jme3.scene.plugins.gltf.GltfLoader;
 import com.jme3.scene.shape.Box;
 import com.jme3.scene.shape.Quad;
 import com.jme3.texture.Texture;
+
 import org.example.robot.RobotManager;
 
 /**
@@ -31,6 +34,22 @@ public class SceneManager {
     private final Node galleryNode;
     private RobotManager robotManager;
     private Spatial robot;
+    private AnimComposer animComposer;
+
+    // ✅ Variables pour la bulle d'information
+    private Node infoBubbleNode;
+    private BitmapText bubbleText;
+    private Geometry bubbleBackground;
+    private float bubbleDisplayTime = 0f;
+    private static final float BUBBLE_DURATION = 8f; // 8 secondes d'affichage
+
+    // ✅ Variables pour le mouvement du robot
+    private boolean robotWalking = false;
+    private float robotWalkTime = 0f;
+    private static final float ROBOT_WALK_DURATION = 2f; // 2 secondes de marche
+    private Vector3f robotTargetPosition = new Vector3f();
+    private Vector3f robotStartPosition = new Vector3f();
+    private float robotWalkProgress = 0f;
 
     // Dimensions de la galerie
     private static final float GALLERY_WIDTH = 40f;
@@ -64,7 +83,7 @@ public class SceneManager {
         createBenches();
         createPedestals();
         createStaircase();
-        createRobot();
+        loadRobot();
     }
 
     /**
@@ -528,10 +547,54 @@ public class SceneManager {
         galleryNode.attachChild(stairNode);
     }
 
-    public void createRobot(){
-        this.robotManager = new RobotManager(this.app);
-        this.robotManager.setRobot(rootNode, new Vector3f(0, 3f, 40f));
-        this.robot = this.robotManager.getRobot();
+//    public void loadRobot(){
+//        this.robotManager = new RobotManager(this.app);
+//        this.robotManager.setRobot(rootNode, new Vector3f(0, 3f, 40f));
+//        this.robot = this.robotManager.getRobot();
+//    }
+
+    public void loadRobot() {
+            robotManager = new RobotManager(this.app);
+            robotManager.setRobot(rootNode);
+            robot = robotManager.getRobot();
+            robot.scale(1f);
+
+            BoundingBox bbox = (BoundingBox) robot.getWorldBound();
+            float minY = 0.1f + bbox.getYExtent();
+            robot.setLocalTranslation(0, minY, 0);
+
+            app.getRootNode().attachChild(robot);
+
+            animComposer = robot.getControl(AnimComposer.class);
+            if (animComposer != null) {
+                System.out.println("✅ Animations disponibles : " + animComposer.getAnimClipsNames());
+                if (animComposer.getAnimClipsNames().contains("Idle")) {
+                    animComposer.setCurrentAction("Idle");
+                } else {
+                    String firstAnim = animComposer.getAnimClipsNames().stream().findFirst().orElse(null);
+                    if (firstAnim != null) animComposer.setCurrentAction(firstAnim);
+                }
+            } else {
+                System.out.println("⚠️ Aucun AnimComposer trouvé sur le modèle.");
+            }
+
+            DirectionalLight robotLight = new DirectionalLight();
+            robotLight.setColor(ColorRGBA.White.mult(1.2f));
+            robotLight.setDirection(new Vector3f(-0.5f, -1f, -0.3f).normalizeLocal());
+            robot.addLight(robotLight);
+
+            AmbientLight softAmbient = new AmbientLight();
+            softAmbient.setColor(ColorRGBA.White.mult(0.3f));
+            robot.addLight(softAmbient);
+    }
+
+    public void playAnimation(String animName) {
+        if (animComposer != null && animComposer.getAnimClipsNames().contains(animName)) {
+            animComposer.setCurrentAction(animName);
+            System.out.println("🎥 Animation jouée : " + animName);
+        } else {
+            System.out.println("⚠️ Animation '" + animName + "' introuvable.");
+        }
     }
 
     /**
@@ -543,6 +606,254 @@ public class SceneManager {
 
     public Spatial getRobot(){
         return this.robot;
+    }
+
+    // ✅ ============================================
+    // ✅ NOUVELLES MÉTHODES POUR LA BULLE ET LE CLIC
+    // ✅ ============================================
+
+    /**
+     * ✅ Initialise la détection de clic et crée la bulle 3D
+     */
+    public void initializeClickDetection() {
+        // ✅ CRÉATION DE LA BULLE 3D
+        infoBubbleNode = new Node("InfoBubble");
+
+        // Fond de la bulle (quad rectangulaire)
+        Quad bubbleQuad = new Quad(5f, 1.5f); // Largeur x Hauteur
+        bubbleBackground = new Geometry("BubbleBackground", bubbleQuad);
+        Material bubbleMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        bubbleMat.setColor("Color", new ColorRGBA(0.1f, 0.1f, 0.2f, 0.9f)); // Fond bleu foncé
+        bubbleMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
+        bubbleBackground.setMaterial(bubbleMat);
+        bubbleBackground.setLocalTranslation(-2.5f, 0f, 0.01f); // Centrer horizontalement
+        infoBubbleNode.attachChild(bubbleBackground);
+
+        // Texte de la bulle
+        BitmapFont font = app.getAssetManager().loadFont("Interface/Fonts/Default.fnt");
+        bubbleText = new BitmapText(font);
+        bubbleText.setSize(0.18f);
+        bubbleText.setColor(ColorRGBA.White);
+        bubbleText.setText(null);
+        bubbleText.setLocalTranslation(-2.3f, 0.7f, 0.02f); // Position relative au fond
+        infoBubbleNode.attachChild(bubbleText);
+
+        // ✅ Rendre la bulle invisible au départ
+        infoBubbleNode.setCullHint(Spatial.CullHint.Always);
+
+        rootNode.attachChild(infoBubbleNode);
+
+        System.out.println("✅ Bulle d'information créée et attachée au rootNode");
+    }
+
+    /**
+     * ✅ Détecte si on clique sur un tableau (utilise le CENTRE de l'écran)
+     */
+    public void detectPaintingClick() {
+        CollisionResults results = new CollisionResults();
+
+        // ✅ Utiliser le CENTRE de l'écran au lieu du curseur
+        Vector2f screenCenter = new Vector2f(
+                app.getCamera().getWidth() / 2f,
+                app.getCamera().getHeight() / 2f
+        );
+
+        Vector3f origin = app.getCamera().getWorldCoordinates(screenCenter, 0f);
+        Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f)
+                .subtractLocal(origin).normalizeLocal();
+
+        Ray ray = new Ray(origin, dir);
+        rootNode.collideWith(ray, results);
+
+        if (results.size() > 0) {
+            CollisionResult closest = results.getClosestCollision();
+            Geometry geom = closest.getGeometry();
+
+            String name = geom.getName();
+            if (name.contains("Canvas") || name.contains("Painting")) {
+                System.out.println("🖱️ Tableau cliqué : " + name);
+
+                // ✅ Obtenir les infos du tableau
+                String paintingInfo = getPaintingInfo(name);
+
+                // ✅ Afficher la bulle au-dessus du robot
+                showInfoBubble(paintingInfo);
+
+                // ✅ Faire marcher le robot vers le tableau
+                if (robot != null) {
+                    startRobotWalkTowardsPainting(geom);
+                    playAnimation("Talk"); // Animation de parole
+                }
+            } else {
+                System.out.println("⚠️ Objet cliqué (pas un tableau) : " + name);
+            }
+        } else {
+            System.out.println("⚠️ Aucun objet cliqué");
+        }
+    }
+
+    /**
+     * ✅ Vérifie si on regarde un tableau (pour changer la couleur du réticule)
+     */
+    public boolean isLookingAtPainting() {
+        CollisionResults results = new CollisionResults();
+        Vector2f screenCenter = new Vector2f(
+                app.getCamera().getWidth() / 2f,
+                app.getCamera().getHeight() / 2f
+        );
+
+        Vector3f origin = app.getCamera().getWorldCoordinates(screenCenter, 0f);
+        Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f)
+                .subtractLocal(origin).normalizeLocal();
+
+        Ray ray = new Ray(origin, dir);
+        rootNode.collideWith(ray, results);
+
+        if (results.size() > 0) {
+            String name = results.getClosestCollision().getGeometry().getName();
+            return name.contains("Canvas") || name.contains("Painting");
+        }
+        return false;
+    }
+
+    /**
+     * ✅ Retourne les informations d'un tableau selon son nom
+     */
+    private String getPaintingInfo(String paintingName) {
+        // Base de données des tableaux
+        if (paintingName.contains("_L_0") || paintingName.contains("painting1")) {
+            return "La Joconde - Leonardo da Vinci (1503-1519)";
+        } else if (paintingName.contains("_L_1") || paintingName.contains("painting2")) {
+            return "La Liberte guidant le peuple - Delacroix (1830)";
+        } else if (paintingName.contains("_L_2") || paintingName.contains("painting3")) {
+            return "Les Noces de Cana - Veronese (1563)";
+        } else if (paintingName.contains("_L_3") || paintingName.contains("painting4")) {
+            return "La Dentelliere - Johannes Vermeer (1669-1670)";
+        } else if (paintingName.contains("_L_4") || paintingName.contains("painting5")) {
+            return "Le Serment des Horaces - Jacques-Louis David";
+        } else if (paintingName.contains("_R_0") || paintingName.contains("painting11")) {
+            return "Le Radeau de la Meduse - Gericault (1819)";
+        } else if (paintingName.contains("_R_1") || paintingName.contains("painting7")) {
+            return "La Victoire de Samothrace - Sculpture grecque";
+        } else if (paintingName.contains("_R_2") || paintingName.contains("painting8")) {
+            return "Venus de Milo - Sculpture grecque antique";
+        } else if (paintingName.contains("_R_3") || paintingName.contains("painting9")) {
+            return "Le Tricheur - Georges de La Tour (1635)";
+        } else if (paintingName.contains("_R_4") || paintingName.contains("painting10")) {
+            return "La Grande Odalisque - Jean-Auguste Ingres (1814)";
+        } else if (paintingName.contains("Back_0") || paintingName.contains("painting12")) {
+            return "Portrait de Louis XIV - Hyacinthe Rigaud (1701)";
+        } else if (paintingName.contains("Back_1") || paintingName.contains("painting13")) {
+            return "Le Sacre de Napoleon - Jacques-Louis David";
+        } else if (paintingName.contains("Back_2") || paintingName.contains("painting14")) {
+            return "La Mort de Sardanapale - Eugene Delacroix";
+        } else if (paintingName.contains("Back_3") || paintingName.contains("painting15")) {
+            return "Psyche ranimee par le baiser de l'Amour - Canova";
+        } else if (paintingName.contains("Back_4") || paintingName.contains("painting16")) {
+            return "Le Radeau de la Meduse - Theodore Gericault";
+        }
+
+        return "Oeuvre d'art du Louvre - Collection permanente";
+    }
+
+    /**
+     * ✅ Affiche la bulle d'information au-dessus du robot
+     */
+    private void showInfoBubble(String text) {
+        bubbleText.setText(text);
+        infoBubbleNode.setCullHint(Spatial.CullHint.Never); // Rendre visible
+        bubbleDisplayTime = BUBBLE_DURATION; // Réinitialiser le timer
+        System.out.println("💬 Bulle affichée : " + text);
+    }
+
+    /**
+     * ✅ Démarre le mouvement du robot vers le tableau
+     */
+    private void startRobotWalkTowardsPainting(Geometry painting) {
+        if (robot == null) return;
+
+        robotStartPosition.set(robot.getLocalTranslation());
+
+        // Calculer la position cible (1.5 mètres devant le tableau)
+        Vector3f paintingPos = painting.getWorldTranslation();
+        Vector3f paintingNormal = painting.getWorldRotation().mult(Vector3f.UNIT_Z);
+
+        robotTargetPosition.set(paintingPos.add(paintingNormal.mult(1.5f)));
+        robotTargetPosition.y = robotStartPosition.y; // Garder la même hauteur
+
+        // Orienter le robot vers le tableau
+        robot.lookAt(paintingPos, Vector3f.UNIT_Y);
+
+        // Démarrer l'animation de marche
+        robotWalking = true;
+        robotWalkTime = 0f;
+        robotWalkProgress = 0f;
+
+        playAnimation("Walk");
+
+        System.out.println("🚶 Robot commence à marcher vers le tableau");
+    }
+
+    /**
+     * ✅ Méthode update à appeler depuis JmeApp.simpleUpdate()
+     */
+    public void update(float tpf, com.jme3.renderer.Camera cam) {
+        // ✅ Gérer le mouvement du robot vers le tableau
+        updateRobotWalk(tpf);
+
+        // ✅ Mettre à jour la position de la bulle
+        updateInfoBubblePosition(cam);
+    }
+
+    /**
+     * ✅ Met à jour le mouvement du robot pendant qu'il marche
+     */
+    private void updateRobotWalk(float tpf) {
+        if (robotWalking && robot != null) {
+            robotWalkTime += tpf;
+            robotWalkProgress = Math.min(robotWalkTime / ROBOT_WALK_DURATION, 1f);
+
+            // Interpolation linéaire entre position de départ et cible
+            Vector3f currentPos = robotStartPosition.interpolateLocal(robotTargetPosition, robotWalkProgress);
+            robot.setLocalTranslation(currentPos);
+
+            // Fin du mouvement
+            if (robotWalkProgress >= 1f) {
+                robotWalking = false;
+                playAnimation("Talk"); // Revenir à l'animation de parole
+                System.out.println("✅ Robot arrivé au tableau");
+            }
+        }
+    }
+
+    /**
+     * ✅ Met à jour la position de la bulle pour qu'elle suive le robot
+     */
+    private void updateInfoBubblePosition(com.jme3.renderer.Camera cam) {
+        if (bubbleDisplayTime > 0) {
+            bubbleDisplayTime -= 0.016f; // ~60 FPS
+
+            if (bubbleDisplayTime <= 0) {
+                infoBubbleNode.setCullHint(Spatial.CullHint.Always); // Cacher
+                System.out.println("💬 Bulle masquée (timer expiré)");
+            } else if (robot != null) {
+                // ✅ Positionner la bulle AU-DESSUS du robot
+                Vector3f robotPos = robot.getWorldTranslation();
+                BoundingBox bbox = (BoundingBox) robot.getWorldBound();
+                float robotHeight = bbox.getYExtent() * 2;
+
+                Vector3f bubblePos = new Vector3f(
+                        robotPos.x,
+                        robotPos.y + robotHeight + 0.8f, // 0.8f au-dessus de la tête
+                        robotPos.z
+                );
+
+                infoBubbleNode.setLocalTranslation(bubblePos);
+
+                // ✅ Orienter la bulle vers la caméra (billboard effect)
+                infoBubbleNode.lookAt(cam.getLocation(), Vector3f.UNIT_Y);
+            }
+        }
     }
 
 }

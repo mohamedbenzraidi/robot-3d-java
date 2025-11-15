@@ -23,18 +23,23 @@ public class RobotManager {
         this.assetManager = app.getAssetManager();
     }
 
-    public void setRobot(Node rootNode, Vector3f position){
+    public void setRobot(Node rootNode){
         try{
-            robot = this.assetManager.loadModel("Models/ai_robot.j3o");
-            robot.scale(5f);
-            robot.setLocalTranslation(position.add(new Vector3f(2f,-3f,-2f)));
-            robot.rotate(0, (float) Math.toRadians(-90), 0);
+            robot = this.assetManager.loadModel("Models/robot.glb");
+
+            Material robotMat = new Material(app.getAssetManager(), "Common/MatDefs/Light/Lighting.j3md");
+            Texture robotTex = app.getAssetManager().loadTexture("Textures/texture.png");
+            robotMat.setTexture("DiffuseMap", robotTex);
+            robot.setMaterial(robotMat);
+
+
             rootNode.attachChild(robot);
 
 
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("Error : loading the robot model");
+            System.out.println("ℹ Aucune texture externe trouvée pour le robot — texture intégrée utilisée.");
+
         }
 
     }
