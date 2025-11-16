@@ -35,6 +35,7 @@ public class SceneManager {
     private RobotManager robotManager;
     private Spatial robot;
     private AnimComposer animComposer;
+    private AssetLoader assetLoader;
 
     // ✅ Variables pour la bulle d'information
     private Node infoBubbleNode;
@@ -68,6 +69,8 @@ public class SceneManager {
         this.rootNode = app.getRootNode();
         this.galleryNode = new Node("GalleryNode");
         rootNode.attachChild(galleryNode);
+        this.assetLoader = new AssetLoader();
+        app.getStateManager().attach(this.assetLoader);
     }
 
     /**
@@ -86,19 +89,77 @@ public class SceneManager {
         loadRobot();
     }
 
+    public void setAssetsToLoad(){
+        this.assetLoader
+                .addMaterial("Common/MatDefs/Light/Lighting.j3md", "defMat")
+                .addTexture("Textures/marble_floor.png", "marble_floor")
+                .addTexture("Textures/wall_marble.png", "wall_marble")
+                .addTexture("Textures/decore_marble_floor.png", "decore_marble_floor")
+                .addModel("Models/robot.glb", "robot")
+                .addTexture("Textures/texture.png", "robotTexture");
+
+        String[] paths_left = {"painting1.jpg",
+                "painting2.jpeg",
+                "painting3.jpg",
+                "painting4.jpeg",
+                "painting5.jpeg"
+        };
+
+        int i = 1;
+        for(String path : paths_left){
+            this.assetLoader.addTexture("Textures/"+ path, "paint_left_"+i);
+            i++;
+        }
+
+        String[] paths_right = {"painting11.jpeg",
+                "painting7.png",
+                "painting8.jpeg",
+                "painting9.jpg",
+                "painting10.jpg"
+        };
+
+        i=1;
+        for(String path : paths_right){
+            this.assetLoader.addTexture("Textures/"+ path, "paint_right_"+i);
+            i++;
+        }
+
+        String[] paths_back = { "painting12.jpeg",
+                "painting13.jpg",
+                "painting14.jpg",
+                "painting15.jpg",
+                "painting16.jpg"
+        };
+
+        i=1;
+        for(String path : paths_back){
+            this.assetLoader.addTexture("Textures/"+ path, "paint_back_"+i);
+            i++;
+        }
+
+        this.assetLoader.onComplete(() -> {
+            // This callback runs when loading is complete
+            System.out.println("Callback: Loading finished!");
+            initializeScene();
+            initializeClickDetection();
+            ((JmeApp)app).showCrosshair();
+        });
+    }
+
+
     /**
      * Crée le sol en marbre
      */
     private void createFloor() {
         Box floorBox = new Box(GALLERY_WIDTH / 2, 0.1f, GALLERY_LENGTH / 2);
         Geometry floor = new Geometry("Floor", floorBox);
-        Material mat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
+        Material mat = this.assetLoader.getMaterial("defMat").clone();
         mat.setColor("Diffuse", COLOR_FLOOR);
         mat.setColor("Ambient", COLOR_FLOOR);
         mat.setBoolean("UseMaterialColors", true);
 
         // Texture optionnelle
-        Texture floorTex = assetManager.loadTexture("Textures/marble_floor.png");
+        Texture floorTex = this.assetLoader.getTexture("marble_floor");
         floorTex.setWrap(Texture.WrapMode.Repeat);
         mat.setTexture("DiffuseMap", floorTex);
 
@@ -114,33 +175,33 @@ public class SceneManager {
     private void createWalls() {
         // Mur gauche - Texture brique
         createWall("WallLeft", WALL_THICKNESS, GALLERY_HEIGHT, GALLERY_LENGTH,
-                -GALLERY_WIDTH / 2, GALLERY_HEIGHT / 2, 0, "Textures/wall_marble.png");
+                -GALLERY_WIDTH / 2, GALLERY_HEIGHT / 2, 0, "wall_marble");
 
         // Mur droit - Texture brique
         createWall("WallRight", WALL_THICKNESS, GALLERY_HEIGHT, GALLERY_LENGTH,
-                GALLERY_WIDTH / 2, GALLERY_HEIGHT / 2, 0, "Textures/wall_marble.png");
+                GALLERY_WIDTH / 2, GALLERY_HEIGHT / 2, 0, "wall_marble");
 
         // Mur du fond - Texture plâtre blanc
         createWall("WallBack", GALLERY_WIDTH, GALLERY_HEIGHT, WALL_THICKNESS,
-                0, GALLERY_HEIGHT / 2, -GALLERY_LENGTH / 2, "Textures/decore_marble_floor.png");
+                0, GALLERY_HEIGHT / 2, -GALLERY_LENGTH / 2, "decore_marble_floor");
 
         // Mur d'entrée - Texture béton
         createWall("WallFront", GALLERY_WIDTH, GALLERY_HEIGHT, WALL_THICKNESS,
-                0, GALLERY_HEIGHT / 2, GALLERY_LENGTH / 2, "Textures/decore_marble_floor.png");
+                0, GALLERY_HEIGHT / 2, GALLERY_LENGTH / 2, "decore_marble_floor");
     }
 
     /**
      * Crée un mur AVEC TEXTURE
      */
     private void createWall(String name, float width, float height, float depth,
-                            float x, float y, float z, String texturePath) {
+                            float x, float y, float z, String textureKey) {
         Box wallBox = new Box(width / 2, height / 2, depth / 2);
         Geometry wall = new Geometry(name, wallBox);
-        Material mat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
+        Material mat = this.assetLoader.getMaterial("defMat").clone();
 
         try {
             // Charger la texture PNG
-            Texture texture = assetManager.loadTexture(texturePath);
+            Texture texture = this.assetLoader.getTexture(textureKey);
             texture.setWrap(Texture.WrapMode.Repeat); // permet la répétition
             mat.setTexture("DiffuseMap", texture);
 
@@ -154,12 +215,12 @@ public class SceneManager {
             mat.setColor("Diffuse", ColorRGBA.White);
             mat.setColor("Ambient", ColorRGBA.Gray);
 
-            System.out.println("Texture chargée: " + texturePath);
+            System.out.println("Texture chargée: " + textureKey);
 
         } catch (Exception e) {
             // Si la texture n'est pas trouvée, utiliser une couleur par défaut
             e.printStackTrace();
-            System.out.println("Texture non trouvée: " + texturePath + " - Utilisation couleur par défaut");
+            System.out.println("Texture non trouvée: " + textureKey + " - Utilisation couleur par défaut");
 
             // Couleurs par défaut selon le nom du mur
             ColorRGBA fallbackColor;
@@ -235,7 +296,7 @@ public class SceneManager {
     private void createPillar(String name, float x, float z, Node parent) {
         Box pillar = new Box(0.8f, 5f, 0.8f);
         Geometry pillarGeom = new Geometry(name, pillar);
-        Material mat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
+        Material mat = this.assetLoader.getMaterial("defMat").clone();
         mat.setColor("Diffuse", COLOR_WALL_WHITE);
         mat.setColor("Ambient", COLOR_WALL_WHITE);
         mat.setBoolean("UseMaterialColors", true);
@@ -260,7 +321,7 @@ public class SceneManager {
 
             Box segment = new Box(0.3f, 0.3f, thickness);
             Geometry segmentGeom = new Geometry(name + "_Seg" + i, segment);
-            Material mat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
+            Material mat = this.assetLoader.getMaterial("defMat").clone();
             mat.setColor("Diffuse", COLOR_WALL_WHITE);
             mat.setColor("Ambient", COLOR_WALL_WHITE);
             mat.setBoolean("UseMaterialColors", true);
@@ -282,7 +343,7 @@ public class SceneManager {
 
             Box skylight = new Box(8f, 0.2f, 8f);
             Geometry skylightGeom = new Geometry("Skylight_" + i, skylight);
-            Material mat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
+            Material mat = this.assetLoader.getMaterial("defMat").clone();
             mat.setColor("Diffuse", new ColorRGBA(0.9f, 0.95f, 1f, 0.3f));
             mat.setColor("Ambient", ColorRGBA.White);
             mat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
@@ -348,43 +409,38 @@ public class SceneManager {
      */
     private void createPaintings() {
 
-        String[] paths_left = {"painting1.jpg",
-                                "painting2.jpeg",
-                                "painting3.jpg",
-                                "painting4.jpeg",
-                                "painting5.jpeg"
-                        };
+        String[] keysLeft = new String[5];
+        for(int i=0; i < keysLeft.length; i++){
+            keysLeft[i] = "paint_left_" + (i+1);
+        }
 
         // Tableaux mur gauche
-        createPaintingWall(-GALLERY_WIDTH / 2 + 0.6f, true, paths_left);
+        createPaintingWall(-GALLERY_WIDTH / 2 + 0.6f, true, keysLeft);
 
-        String[] paths_right = {"painting11.jpeg",
-                                "painting7.png",
-                                "painting8.jpeg",
-                                "painting9.jpg",
-                                "painting10.jpg"
-                        };
+
+        String[] keysRight = new String[5];
+        for(int i=0; i < keysRight.length; i++){
+            keysRight[i] = "paint_right_" + (i+1);
+        }
 
         // Tableaux mur droit
-        createPaintingWall(GALLERY_WIDTH / 2 - 0.6f, false, paths_right);
+        createPaintingWall(GALLERY_WIDTH / 2 - 0.6f, false, keysRight);
 
-        String[] paths_back = { "painting12.jpeg",
-                                "painting13.jpg",
-                                "painting14.jpg",
-                                "painting15.jpg",
-                                "painting16.jpg"
-                        };
 
+        String[] keysBack = new String[5];
+        for(int i=0; i < keysBack.length; i++){
+            keysBack[i] = "paint_back_" + (i+1);
+        }
 
         // Tableaux mur du fond
-        createPaintingBackWall(paths_back);
+        createPaintingBackWall(keysBack);
     }
 
     /**
      * Crée une série de tableaux sur un mur latéral
      */
-    private void createPaintingWall(float x, boolean facingRight, String[] paths) {
-        int len = paths.length;
+    private void createPaintingWall(float x, boolean facingRight, String[] keys) {
+        int len = keys.length;
 
         float spacing = GALLERY_LENGTH / (len + 1);
 
@@ -394,20 +450,20 @@ public class SceneManager {
             float width = 2f + (i % 2) * 0.5f;
 
             createPainting("Painting_" + (facingRight ? "R" : "L") + "_" + i,
-                    x, height, z, width, width * 1.3f, facingRight ? 90f : -90f, paths[i]);
+                    x, height, z, width, width * 1.3f, facingRight ? 90f : -90f, keys[i]);
         }
     }
 
     /**
      * Crée des tableaux sur le mur du fond
      */
-    private void createPaintingBackWall(String[] paths) {
+    private void createPaintingBackWall(String[] keys) {
         float[] positions = {-12f, -6f, 0f, 6f, 12f};
 
         for (int i = 0; i < positions.length; i++) {
             createPainting("Painting_Back_" + i,
                     positions[i], 5.5f, -GALLERY_LENGTH / 2 + 0.6f,
-                    2.5f, 3f, 0f, paths[i]);
+                    2.5f, 3f, 0f, keys[i]);
         }
     }
 
@@ -415,11 +471,11 @@ public class SceneManager {
      * Crée un tableau individuel
      */
     private void createPainting(String name, float x, float y, float z,
-                                float width, float height, float rotationY, String path) {
+                                float width, float height, float rotationY, String Textkey) {
         // Cadre
         Box frame = new Box(width / 2 + 0.1f, height / 2 + 0.1f, 0.05f);
         Geometry frameGeom = new Geometry(name + "_Frame", frame);
-        Material frameMat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
+        Material frameMat = this.assetLoader.getMaterial("defMat").clone();
         frameMat.setColor("Diffuse", new ColorRGBA(0.2f, 0.15f, 0.1f, 1f));
         frameMat.setColor("Ambient", new ColorRGBA(0.1f, 0.08f, 0.05f, 1f));
         frameMat.setBoolean("UseMaterialColors", true);
@@ -428,10 +484,10 @@ public class SceneManager {
         // Toile
         Quad canvas = new Quad(width, height);
         Geometry canvasGeom = new Geometry(name + "_Canvas", canvas);
-        Material canvasMat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
+        Material canvasMat = this.assetLoader.getMaterial("defMat").clone();
 
         // IMPORTANT: Charger votre texture ici
-        Texture paintingTex = assetManager.loadTexture("Textures/" + path);
+        Texture paintingTex = this.assetLoader.getTexture(Textkey);
         canvasMat.setTexture("DiffuseMap", paintingTex);
 
         // Couleur temporaire pour démonstration
@@ -472,7 +528,7 @@ public class SceneManager {
         // Siège
         Box seat = new Box(3f, 0.2f, 1f);
         Geometry seatGeom = new Geometry(name + "_Seat", seat);
-        Material mat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
+        Material mat = this.assetLoader.getMaterial("defMat").clone();
         mat.setColor("Diffuse", new ColorRGBA(0.9f, 0.88f, 0.85f, 1f));
         mat.setColor("Ambient", new ColorRGBA(0.7f, 0.68f, 0.65f, 1f));
         mat.setBoolean("UseMaterialColors", true);
@@ -510,7 +566,7 @@ public class SceneManager {
     private void createPedestal(String name, float x, float y, float z) {
         Box pedestal = new Box(1f, 0.8f, 1f);
         Geometry pedestalGeom = new Geometry(name, pedestal);
-        Material mat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
+        Material mat = this.assetLoader.getMaterial("defMat").clone();
         mat.setColor("Diffuse", new ColorRGBA(0.85f, 0.85f, 0.87f, 1f));
         mat.setColor("Ambient", new ColorRGBA(0.7f, 0.7f, 0.72f, 1f));
         mat.setBoolean("UseMaterialColors", true);
@@ -530,7 +586,7 @@ public class SceneManager {
         float stepHeight = 0.2f;
         float stepDepth = 0.8f;
 
-        Material mat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
+        Material mat = this.assetLoader.getMaterial("defMat").clone();
         mat.setColor("Diffuse", new ColorRGBA(0.88f, 0.85f, 0.82f, 1f));
         mat.setColor("Ambient", new ColorRGBA(0.7f, 0.67f, 0.64f, 1f));
         mat.setBoolean("UseMaterialColors", true);
@@ -547,17 +603,13 @@ public class SceneManager {
         galleryNode.attachChild(stairNode);
     }
 
-//    public void loadRobot(){
-//        this.robotManager = new RobotManager(this.app);
-//        this.robotManager.setRobot(rootNode, new Vector3f(0, 3f, 40f));
-//        this.robot = this.robotManager.getRobot();
-//    }
-
     public void loadRobot() {
-            robotManager = new RobotManager(this.app);
-            robotManager.setRobot(rootNode);
+            robotManager = new RobotManager(this.assetManager);
+            robotManager.setRobot(rootNode, assetLoader);
             robot = robotManager.getRobot();
             robot.scale(1f);
+
+
 
             BoundingBox bbox = (BoundingBox) robot.getWorldBound();
             float minY = 0.1f + bbox.getYExtent();
@@ -622,15 +674,15 @@ public class SceneManager {
         // Fond de la bulle (quad rectangulaire)
         Quad bubbleQuad = new Quad(5f, 1.5f); // Largeur x Hauteur
         bubbleBackground = new Geometry("BubbleBackground", bubbleQuad);
-        Material bubbleMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        bubbleMat.setColor("Color", new ColorRGBA(0.1f, 0.1f, 0.2f, 0.9f)); // Fond bleu foncé
+        Material bubbleMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        bubbleMat.setColor("Color", new ColorRGBA(0.1f, 0.1f, 0.2f, 0.9f));
         bubbleMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
         bubbleBackground.setMaterial(bubbleMat);
         bubbleBackground.setLocalTranslation(-2.5f, 0f, 0.01f); // Centrer horizontalement
         infoBubbleNode.attachChild(bubbleBackground);
 
         // Texte de la bulle
-        BitmapFont font = app.getAssetManager().loadFont("Interface/Fonts/Default.fnt");
+        BitmapFont font = assetManager.loadFont("Interface/Fonts/Default.fnt");
         bubbleText = new BitmapText(font);
         bubbleText.setSize(0.18f);
         bubbleText.setColor(ColorRGBA.White);
@@ -658,6 +710,7 @@ public class SceneManager {
                 app.getCamera().getHeight() / 2f
         );
 
+
         Vector3f origin = app.getCamera().getWorldCoordinates(screenCenter, 0f);
         Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f)
                 .subtractLocal(origin).normalizeLocal();
@@ -677,13 +730,17 @@ public class SceneManager {
                 String paintingInfo = getPaintingInfo(name);
 
                 // ✅ Afficher la bulle au-dessus du robot
-                showInfoBubble(paintingInfo);
+//                showInfoBubble(paintingInfo);
+                if (bubbleText != null) {
+                    showInfoBubble(paintingInfo);
+                }
 
                 // ✅ Faire marcher le robot vers le tableau
                 if (robot != null) {
                     startRobotWalkTowardsPainting(geom);
                     playAnimation("Talk"); // Animation de parole
                 }
+
             } else {
                 System.out.println("⚠️ Objet cliqué (pas un tableau) : " + name);
             }
