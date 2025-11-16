@@ -17,6 +17,7 @@ import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
+import com.jme3.scene.Spatial;
 import com.jme3.system.AppSettings;
 import com.jme3.system.JmeCanvasContext;
 
@@ -38,6 +39,7 @@ public class JmeApp extends SimpleApplication {
     private float walkSpeed = 10f;
     private boolean moveForward, moveBackward, moveLeft, moveRight;
     private BitmapText crosshair;
+    private BitmapText instructions;
 
 
     public static void main() {
@@ -76,8 +78,8 @@ public class JmeApp extends SimpleApplication {
 
         // Initialiser le gestionnaire de scène
         sceneManager = new SceneManager(this);
-        sceneManager.initializeScene();
-        sceneManager.initializeClickDetection();
+        sceneManager.setAssetsToLoad();
+
 
         // Configurer la caméra
         setupCamera();
@@ -87,6 +89,11 @@ public class JmeApp extends SimpleApplication {
 
         // ✅ NOUVEAU : Créer le réticule
         createCrosshair();
+
+        instructions.setCullHint(Spatial.CullHint.Always);
+        crosshair.setCullHint(Spatial.CullHint.Always);
+
+
 
         // Cacher le curseur pour une expérience immersive
         inputManager.setCursorVisible(false);
@@ -111,7 +118,7 @@ public class JmeApp extends SimpleApplication {
         guiNode.attachChild(crosshair);
 
         // ✅ Message d'instructions
-        BitmapText instructions = new BitmapText(font);
+        instructions = new BitmapText(font);
         instructions.setSize(font.getCharSet().getRenderedSize());
         instructions.setText("Visez un tableau avec le réticule (+) et cliquez (clic gauche)");
         instructions.setColor(ColorRGBA.Yellow);
@@ -262,6 +269,19 @@ public class JmeApp extends SimpleApplication {
             crosshair.setColor(ColorRGBA.Red);
         } else {
             crosshair.setColor(ColorRGBA.White);
+        }
+    }
+
+
+    /**
+     * ✅ Show crosshair and instructions after loading
+     */
+    public void showCrosshair() {
+        if (crosshair != null) {
+            crosshair.setCullHint(Spatial.CullHint.Never);
+        }
+        if (instructions != null) {
+            instructions.setCullHint(Spatial.CullHint.Never);
         }
     }
 
