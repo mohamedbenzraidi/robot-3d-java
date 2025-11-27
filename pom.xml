@@ -52,6 +52,46 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.11.0</version>
+        </dependency>
+
+        <!-- HTTP client (nécessaire pour l’API) -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
+        </dependency>
+
+        <!-- JSON (besoin pour sérialisation/désérialisation) -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.11.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.simsilica</groupId>
+            <artifactId>lemur</artifactId>
+            <version>1.16.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.simsilica</groupId>
+            <artifactId>lemur-proto</artifactId>
+            <version>1.11.0</version>
+        </dependency>
+        
+        <!-- Google Generative AI (Gemini) - Utilisation de l'API REST -->
+        <!-- Les dépendances okhttp et gson ci-dessus sont suffisantes pour l'API REST -->
+        
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
@@ -263,6 +303,39 @@
               <version>0.0.8</version>
               <configuration>
                   <mainClass>org.example.Main</mainClass>
+              </configuration>
+          </plugin>
+          <plugin>
+              <groupId>org.codehaus.mojo</groupId>
+              <artifactId>exec-maven-plugin</artifactId>
+              <version>3.1.0</version>
+              <executions>
+                  <execution>
+                      <goals>
+                          <goal>java</goal>
+                      </goals>
+                  </execution>
+              </executions>
+              <configuration>
+                  <mainClass>org.example.App</mainClass>
+                  <arguments>
+                      <argument>--add-opens</argument>
+                      <argument>java.base/java.lang=ALL-UNNAMED</argument>
+                      <argument>--add-opens</argument>
+                      <argument>java.base/java.lang.invoke=ALL-UNNAMED</argument>
+                      <argument>--add-opens</argument>
+                      <argument>java.base/java.lang.reflect=ALL-UNNAMED</argument>
+                      <argument>--add-opens</argument>
+                      <argument>java.base/java.io=ALL-UNNAMED</argument>
+                      <argument>--add-opens</argument>
+                      <argument>java.base/java.security=ALL-UNNAMED</argument>
+                      <argument>--add-opens</argument>
+                      <argument>java.base/java.util=ALL-UNNAMED</argument>
+                      <argument>--add-opens</argument>
+                      <argument>java.base/java.util.concurrent=ALL-UNNAMED</argument>
+                      <argument>--add-opens</argument>
+                      <argument>java.base/java.math=ALL-UNNAMED</argument>
+                  </arguments>
               </configuration>
           </plugin>
       </plugins>
