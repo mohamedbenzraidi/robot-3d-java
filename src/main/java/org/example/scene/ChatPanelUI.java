@@ -87,7 +87,7 @@ public class ChatPanelUI {
         bottom.setInsets(new com.simsilica.lemur.Insets3f(15, 20, 15, 20));
 
         // Champ API Key (caché par défaut si clé existe)
-        apiKeyInput = bottom.addChild(new TextField("Enter your Gemini API key here..."));
+        apiKeyInput = bottom.addChild(new TextField("probleme d'API..."));
         apiKeyInput.setPreferredSize(new Vector3f(490, 32, 0));
         apiKeyInput.setFontSize(13);
         apiKeyInput.setBackground(new QuadBackgroundComponent(
@@ -209,9 +209,9 @@ public class ChatPanelUI {
         // Vérifier que ChatBot est initialisé
         if (chatBot == null) {
             String key = apiKeyInput.getText().trim();
-            if (key.isEmpty() || key.equals("Enter your Gemini API key here...")) {
-                addMessage("SYSTEM", "❌ Please enter a valid API key");
-                refreshChatDisplay();
+            if (key.isEmpty() || key.equals("probleme d'API...")) {
+                addMessage("SYSTEM", "veuillez resoudre le probleme");
+//                refreshChatDisplay();
                 return;
             }
 
