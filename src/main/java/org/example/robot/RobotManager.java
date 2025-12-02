@@ -37,7 +37,7 @@ public class RobotManager {
 
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("ℹ Aucune texture externe trouvée pour le robot — texture intégrée utilisée.");
+            System.out.println("Aucune texture externe trouvée pour le robot — texture intégrée utilisée.");
 
         }
 
