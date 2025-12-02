@@ -1,6 +1,7 @@
 package org.example.scene;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -21,6 +22,7 @@ import java.io.File;
 
 public class GuiManager extends Application {
 
+    private static Stage primaryStage;
     private static final String DARK_BG = "#1e1e1e";
     private static final String CARD_BG = "#2c2c2c";
     private static final String CARD_HOVER = "#343434";
@@ -29,6 +31,7 @@ public class GuiManager extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        GuiManager.primaryStage = primaryStage;
         VBox mainContainer = new VBox(20);
         mainContainer.setPadding(new Insets(20));
         mainContainer.setStyle("-fx-background-color: " + DARK_BG + ";");
@@ -39,13 +42,13 @@ public class GuiManager extends Application {
         HBox cardRow1 = new HBox(20);
         cardRow1.setAlignment(Pos.CENTER);
         cardRow1.getChildren().addAll(
-                createCard("Musée du Louvre", "src/main/resources/Textures/Musée du Louvre.jpg", 1, primaryStage),
-                createCard("Metropolitan Museum of Art", "src/main/resources/Textures/Metropolitan Museum of Art.png", 2, primaryStage)
+                createCard("Musée du Louvre", "src/main/resources/Textures/Musée du Louvre.jpg", 1),
+                createCard("Metropolitan Museum of Art", "src/main/resources/Textures/Metropolitan Museum of Art.png", 2)
         );
 
         HBox cardRow2 = new HBox();
         cardRow2.setAlignment(Pos.CENTER);
-        cardRow2.getChildren().add(createCard("British Museum", "src/main/resources/Textures/british_museum.png", 3, primaryStage));
+        cardRow2.getChildren().add(createCard("British Museum", "src/main/resources/Textures/british_museum.png", 3));
 
         VBox cardsContainer = new VBox(25);
         cardsContainer.getChildren().addAll(cardRow1, cardRow2);
@@ -88,8 +91,7 @@ public class GuiManager extends Application {
         return header;
     }
 
-
-    private VBox createCard(String title, String path, int nbrMuseum, Stage primaryStage) {
+    private VBox createCard(String title, String path, int nbrMuseum) {
         VBox card = new VBox(0);
         card.setStyle("-fx-background-color: " + CARD_BG + "; " +
                 "-fx-background-radius: 8; " +
@@ -124,38 +126,33 @@ public class GuiManager extends Application {
             switch (nbrMuseum) {
                 case 1:
                     new Thread(JmeApp::main).start();
-                    primaryStage.close();
+                    primaryStage.hide();
                     break;
+
                 case 2:
-                    //TODO: here where to start the 2nd museum
+                    new Thread(JmeMetApp::main).start();
+                    primaryStage.hide();
                     break;
+
                 case 3:
-                    //TODO: here where to start the 3rd museum
+                    new Thread(JmeThApp::main).start();
+                    primaryStage.hide();
                     break;
                 default:
                     System.out.println("Error: unknown number!");
             }
         });
 
+
         return card;
     }
 
 
     private ImageView createImageView(String path, double width, double height) {
-        ImageView imageView = new ImageView();
+        ImageView imageView = new ImageView(new Image(new File(path).toURI().toString()));
         imageView.setFitWidth(width);
         imageView.setFitHeight(height);
         imageView.setPreserveRatio(false);
-        try{
-            File file = new File(path);
-            Image img = new Image(file.toURI().toString());
-
-            imageView.setImage(img);
-
-        } catch (Exception e) {
-            imageView.setStyle("-fx-background-color: #ddd;");
-        }
-
         return imageView;
     }
 

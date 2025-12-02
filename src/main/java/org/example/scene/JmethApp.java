@@ -7,43 +7,34 @@ import com.jme3.font.BitmapText;
 import com.jme3.input.KeyInput;
 import com.jme3.input.MouseInput;
 import com.jme3.input.controls.ActionListener;
-import com.jme3.input.controls.AnalogListener;
 import com.jme3.input.controls.KeyTrigger;
-import com.jme3.input.controls.MouseAxisTrigger;
 import com.jme3.input.controls.MouseButtonTrigger;
-import com.jme3.light.AmbientLight;
-import com.jme3.light.DirectionalLight;
-import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
-import com.jme3.scene.Geometry;
 import com.jme3.scene.Spatial;
 import com.jme3.system.AppSettings;
-import com.jme3.system.JmeCanvasContext;
-
-import com.jme3.scene.plugins.gltf.*;
 
 import javax.imageio.ImageIO;
-import javax.swing.*;
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 
 
 /**
- * Application principale du Musée 3D Louvre
+ * 🏛️ Application principale du Forum Romain 3D
+ * Musée d'Histoire Antique avec statues romaines, grecques et égyptiennes
  */
-public class JmeApp extends SimpleApplication {
+public class JmeThApp extends SimpleApplication {
 
-    private SceneManager sceneManager;
-    private float walkSpeed = 10f;
+    private float walkSpeed = 15f;
     private boolean moveForward, moveBackward, moveLeft, moveRight;
     private BitmapText crosshair;
     private BitmapText instructions;
-    private MetSceneManager metSceneManager;
+    private ThSceneManager thSceneManager;
+
+
 
     public static void main() {
-        JmeApp app = new JmeApp();
+        JmeThApp app = new JmeThApp();
         app.setSettings(setSettings());
         app.setShowSettings(false); // Ne pas afficher le panneau de config au démarrage
         app.start();
@@ -57,21 +48,30 @@ public class JmeApp extends SimpleApplication {
 
         // IMPORTANT: Initialiser Lemur AVANT toute utilisation
         com.simsilica.lemur.GuiGlobals.initialize(this);
-//        GuiGlobals.getInstance().setCursorEventsEnabled(false);
+        
         //  DÉSACTIVER le comportement par défaut de ESC
         if (inputManager.hasMapping(INPUT_MAPPING_EXIT)) {
             inputManager.deleteMapping(INPUT_MAPPING_EXIT);
         }
+
+        System.out.println("🏛️ === FORUM ROMAIN - MUSÉE D'HISTOIRE ANTIQUE ===");
+        System.out.println("🗿 Chargement des statues:");
+        System.out.println("   - Ramsès II (Égypte) 🇪🇬");
+        System.out.println("   - Athéna (Grèce) 🇬🇷");
+        System.out.println("   - Archange (Médiéval) 😇");
+        System.out.println("   - Sainte Elisabeth 👼");
+        System.out.println("   - Saint Népomuk 🙏");
+        System.out.println("================================================");
 
         // 1. Créer le réticule mais le CACHER
         createCrosshair();
         hideCrosshair();
 
         // 2. Initialiser le gestionnaire de scène
-        sceneManager = new SceneManager(this);
+        thSceneManager = new ThSceneManager(this);
 
         // 3. Charger les assets (le crosshair sera affiché dans le callback)
-        sceneManager.setAssetsToLoad();
+        thSceneManager.setAssetsToLoad();
 
         // 4. Configurer la caméra
         setupCamera();
@@ -85,10 +85,9 @@ public class JmeApp extends SimpleApplication {
         System.out.println("✅ Application initialisée - En attente du chargement...");
     }
 
-
     public static AppSettings setSettings(){
         AppSettings settings = new AppSettings(true);
-        settings.setTitle("Museum 3D - Virtual Tour");
+        settings.setTitle("🏛️ Forum Romain - Virtual Tour 3D");
         settings.setResolution(1920, 1080);
         settings.setVSync(true);
         settings.setSamples(4); // Anti-aliasing
@@ -100,13 +99,16 @@ public class JmeApp extends SimpleApplication {
             };
             settings.setIcons(icons);
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("⚠️ Icônes non trouvées (pas grave)");
         }
 
         settings.setFullscreen(true);
 
         return settings;
     }
+
+
+
 
     public com.jme3.input.FlyByCamera getFlyByCamera() {
         return flyCam;
@@ -133,8 +135,8 @@ public class JmeApp extends SimpleApplication {
         // === INSTRUCTIONS ===
         instructions = new BitmapText(font);
         instructions.setSize(font.getCharSet().getRenderedSize());
-        instructions.setText("Visez un tableau avec le reticule (+) et cliquez (clic gauche)");
-        instructions.setColor(ColorRGBA.Yellow);
+        instructions.setText("🏛️ Visez un tableau avec le réticule (+) et cliquez (clic gauche)");
+        instructions.setColor(new ColorRGBA(1f, 0.84f, 0f, 1f)); // Gold color
 
         float instX = (cam.getWidth() - instructions.getLineWidth()) / 2f;
         instructions.setLocalTranslation(instX, cam.getHeight() - 30, 0);
@@ -162,9 +164,9 @@ public class JmeApp extends SimpleApplication {
      * Configure la position et les paramètres de la caméra
      */
     private void setupCamera() {
-        // Position de départ de la caméra
-        cam.setLocation(new Vector3f(0, 3f, 40f));
-        cam.lookAt(new Vector3f(0, 3f, 0), Vector3f.UNIT_Y);
+        // Position de départ de la caméra (entrée du musée)
+        cam.setLocation(new Vector3f(0, 4f, 55f));
+        cam.lookAt(new Vector3f(0, 4f, 0), Vector3f.UNIT_Y);
 
         // Paramètres de la caméra
         cam.setFrustumPerspective(45f, (float) cam.getWidth() / cam.getHeight(), 0.1f, 1000f);
@@ -172,6 +174,11 @@ public class JmeApp extends SimpleApplication {
         // Vitesse de déplacement par défaut
         flyCam.setMoveSpeed(walkSpeed);
         flyCam.setEnabled(true);
+        
+        // 🖱️ DÉSACTIVER COMPLÈTEMENT la souris
+//        flyCam.setDragToRotate(false);  // Pas besoin de maintenir
+        flyCam.setRotationSpeed(3f);
+        inputManager.setCursorVisible(false);
     }
 
 
@@ -201,9 +208,9 @@ public class JmeApp extends SimpleApplication {
                 // ✅ GESTION PRIORITAIRE DE LA TOUCHE ESC
                 if (name.equals("ESC_KEY") && !isPressed) {
                     // Si le chat panel est ouvert, le fermer
-                    if (sceneManager != null && sceneManager.isChatPanelVisible()) {
+                    if (thSceneManager != null && thSceneManager.isChatPanelVisible()) {
                         System.out.println("🔐 ESC pressed - Closing chat panel");
-                        sceneManager.closeChatPanel();
+                        thSceneManager.closeChatPanel();
                     } else {
                         // Sinon, quitter l'application
                         System.out.println("🚪 ESC pressed - Exiting application");
@@ -213,14 +220,14 @@ public class JmeApp extends SimpleApplication {
                 }
 
                 // ✅ Si le chat panel est ouvert, bloquer TOUS les autres contrôles
-                if (sceneManager != null && sceneManager.isChatPanelVisible()) {
+                if (thSceneManager != null && thSceneManager.isChatPanelVisible()) {
                     return; // Bloquer toutes les actions sauf ESC
                 }
 
                 // ✅ Vérifier que TOUT est chargé (pour les actions normales)
-                if (sceneManager == null ||
-                        sceneManager.getRobot() == null ||
-                        !sceneManager.isSceneReady()) {
+                if (thSceneManager == null ||
+                        thSceneManager.getRobot() == null ||
+                        !thSceneManager.isSceneReady()) {
 
                     if (isPressed && name.equals("Click")) {
                         System.out.println("⏳ Veuillez attendre la fin du chargement...");
@@ -260,9 +267,9 @@ public class JmeApp extends SimpleApplication {
                             System.out.println("\n🖱️ === CLIC DÉTECTÉ ===");
                             System.out.println("📍 Position caméra : " + cam.getLocation());
                             System.out.println("📐 Direction : " + cam.getDirection());
-                            System.out.println("🤖 Position robot : " + sceneManager.getRobot().getLocalTranslation());
+                            System.out.println("🤖 Position robot : " + thSceneManager.getRobot().getLocalTranslation());
 
-                            sceneManager.detectPaintingClick();
+                            thSceneManager.detectPaintingClick();
                         }
                         break;
                 }
@@ -299,23 +306,23 @@ public class JmeApp extends SimpleApplication {
 
     @Override
     public void simpleUpdate(float tpf) {
-        // ✅ Vérifier que sceneManager est initialisé
-        if (sceneManager == null || sceneManager.getRobot() == null) {
+        // ✅ Vérifier que thSceneManager est initialisé
+        if (thSceneManager == null || thSceneManager.getRobot() == null) {
             return; // Attendre que le loading soit terminé
         }
 
         Vector3f camPos = cam.getLocation();
 
         // ✅ Ne pas animer le robot si le chat panel est ouvert
-        if (!sceneManager.isChatPanelVisible()) {
+        if (!thSceneManager.isChatPanelVisible()) {
             if (camPos.distance(lastCamPos) > 0.05f) {
                 if (!isMoving) {
-                    sceneManager.playAnimation("Walk");
+                    thSceneManager.playAnimation("Walk");
                     isMoving = true;
                 }
             } else {
                 if (isMoving) {
-                    sceneManager.playAnimation("Idle");
+                    thSceneManager.playAnimation("Idle");
                     isMoving = false;
                 }
             }
@@ -329,7 +336,7 @@ public class JmeApp extends SimpleApplication {
 
         // ✅ Robot DEVANT la caméra
         Vector3f camDirection = cam.getDirection().normalize();
-        Vector3f robotPos = sceneManager.getRobot().getLocalTranslation();
+        Vector3f robotPos = thSceneManager.getRobot().getLocalTranslation();
 
         float distanceInFront = 3.5f;
 
@@ -345,16 +352,16 @@ public class JmeApp extends SimpleApplication {
                 camPos.z + offset.z
         );
 
-        sceneManager.getRobot().setLocalTranslation(newPos);
-        sceneManager.getRobot().lookAt(camPos, Vector3f.UNIT_Y);
+        thSceneManager.getRobot().setLocalTranslation(newPos);
+        thSceneManager.getRobot().lookAt(camPos, Vector3f.UNIT_Y);
 
         // ✅ Mettre à jour la scène (bulle, timer, etc.)
-        sceneManager.update(tpf, cam);
+        thSceneManager.update(tpf, cam);
 
         // ✅ Mettre à jour la couleur du réticule
-        if (crosshair != null && !sceneManager.isChatPanelVisible()) {
-            boolean lookingAt = sceneManager.isLookingAtPainting();
-            crosshair.setColor(lookingAt ? ColorRGBA.Green : ColorRGBA.White);
+        if (crosshair != null && !thSceneManager.isChatPanelVisible()) {
+            boolean lookingAt = thSceneManager.isLookingAtPainting();
+            crosshair.setColor(lookingAt ? new ColorRGBA(1f, 0.84f, 0f, 1f) : ColorRGBA.White); // Gold when looking
         }
     }
 
@@ -382,5 +389,6 @@ public class JmeApp extends SimpleApplication {
             return null;
         });
     }
+
 
 }
