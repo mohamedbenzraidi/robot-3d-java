@@ -128,7 +128,7 @@ public class ChatPanelUI {
 
         // Initialiser ChatBot avec la clé API
         if (chatBot == null) {
-            String key = "AIzaSyARTw8z3v-AZVZint632WfeNrefFMh5rTo";
+            String key = "AIzaSyATToTi4ZSATY44gUk3pcpngYXccNQUHy0";
             if (key != null && !key.isEmpty()) {
                 try {
                     chatBot = new ChatBot(key);
@@ -200,10 +200,13 @@ public class ChatPanelUI {
 
         if(this.sceneManager instanceof SceneManager){
             app.getInputManager().setCursorVisible(false);
-            ((org.example.scene.JmeApp) app).getFlyByCamera().setEnabled(true);
+            ((JmeApp) app).getFlyByCamera().setEnabled(true);
         }else if(this.sceneManager instanceof MetSceneManager){
             app.getInputManager().setCursorVisible(false);
-            ((org.example.scene.JmeMetApp) app).getFlyByCamera().setEnabled(true);
+            ((JmeMetApp) app).getFlyByCamera().setEnabled(true);
+        }else if(sceneManager instanceof ThSceneManager) {
+            app.getInputManager().setCursorVisible(false);
+            ((JmeThApp) app).getFlyByCamera().setEnabled(true);
         }
 
         System.out.println("❎ Chat panel closed");
@@ -254,6 +257,8 @@ public class ChatPanelUI {
                     reply = chatBot.sendMessage(message, currentPaintingContext, "musée du louvre");
                 }else if(sceneManager instanceof MetSceneManager){
                     reply = chatBot.sendMessage(message, currentPaintingContext, "Metropolitan Museum of Art de New York");
+                }else if(sceneManager instanceof ThSceneManager){
+                    reply = chatBot.sendMessage(message, currentPaintingContext, "Musée d'Orsay");
                 }else{
                     reply = null;
                 }
@@ -273,7 +278,8 @@ public class ChatPanelUI {
                         ((SceneManager) sceneManager).showRobotSpeech(reply);
                     }else if(sceneManager instanceof MetSceneManager){
                         ((MetSceneManager) sceneManager).showRobotSpeech(reply);
-
+                    }else if(sceneManager instanceof ThSceneManager){
+                        ((ThSceneManager) sceneManager).showRobotSpeech(reply);
                     }
                 });
 

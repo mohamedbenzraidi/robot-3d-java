@@ -890,63 +890,77 @@ private void createWall(String name, float width, float height, float depth,
      * ✅ Détecte si on clique sur un tableau (utilise le CENTRE de l'écran)
      */
     public void detectPaintingClick() {
-        CollisionResults results = new CollisionResults();
+        try {
+            CollisionResults results = new CollisionResults();
 
-        // ✅ Utiliser le CENTRE de l'écran au lieu du curseur
-        Vector2f screenCenter = new Vector2f(
-                app.getCamera().getWidth() / 2f,
-                app.getCamera().getHeight() / 2f
-        );
+            // ✅ Utiliser le CENTRE de l'écran au lieu du curseur
+            Vector2f screenCenter = new Vector2f(
+                    app.getCamera().getWidth() / 2f,
+                    app.getCamera().getHeight() / 2f
+            );
 
 
-        Vector3f origin = app.getCamera().getWorldCoordinates(screenCenter, 0f);
-        Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f)
-                .subtractLocal(origin).normalizeLocal();
+            Vector3f origin = app.getCamera().getWorldCoordinates(screenCenter, 0f);
+            Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f)
+                    .subtractLocal(origin).normalizeLocal();
 
-        Ray ray = new Ray(origin, dir);
-        rootNode.collideWith(ray, results);
+            Ray ray = new Ray(origin, dir);
+            rootNode.collideWith(ray, results);
 
-        if (results.size() > 0) {
-            CollisionResult closest = results.getClosestCollision();
-            Geometry geom = closest.getGeometry();
+            if (results.size() > 0) {
+                CollisionResult closest = results.getClosestCollision();
+                Geometry geom = closest.getGeometry();
 
-            String name = geom.getName();
-            if (name.contains("canvas") || name.contains("painting")) {
-                System.out.println("🖱️ Tableau cliqué : " + name);
+                String name = geom.getName();
+                if (name.contains("canvas") || name.contains("painting")) {
+                    System.out.println("🖱️ Tableau cliqué : " + name);
 
-                // ✅ Réinitialiser l'ancien tableau si changement
-                if (currentActivePainting != geom) {
-                    System.out.println("🔄 Changement de tableau - Réinitialisation");
-                    robotStayingNearPainting = false;
-                    currentActivePainting = null;
-                }
+                    // ✅ Réinitialiser l'ancien tableau si changement
+                    if (currentActivePainting != geom) {
+                        System.out.println("🔄 Changement de tableau - Réinitialisation");
+                        robotStayingNearPainting = false;
+                        currentActivePainting = null;
+                    }
 
-                // ✅ Obtenir les infos du tableau
-                String paintingInfo = getPaintingInfo(name);
+                    // ✅ Obtenir les infos du tableau
+                    String paintingInfo = getPaintingInfo(name);
 
-                // ✅ Ouvrir le panneau de chat
-                System.out.println("🔍 Checking chatPanelUI: " + (chatPanelUI == null ? "NULL ❌" : "OK ✅"));
-                if (chatPanelUI != null) {
-                    System.out.println("📞 Calling chatPanelUI.show()...");
-                    chatPanelUI.show(paintingInfo);
+                    // ✅ VÉRIFIER SI paintingInfo EST NULL (database error)
+                    if (paintingInfo == null || paintingInfo.trim().isEmpty()) {
+                        System.err.println("⚠️ ERROR: Could not get painting info from database!");
+                        System.err.println("⚠️ Make sure Docker container is running:");
+                        System.err.println("   docker run --name my-postgres-container -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=tour_3d_db -p 5432:5432 -d postgres");
+                        paintingInfo = "Database connection error. Please check if Docker container is running.";
+                    }
+
+                    // ✅ Ouvrir le panneau de chat
+                    System.out.println("🔍 Checking chatPanelUI: " + (chatPanelUI == null ? "NULL ❌" : "OK ✅"));
+                    if (chatPanelUI != null) {
+                        System.out.println("📞 Calling chatPanelUI.show()...");
+                        chatPanelUI.show(paintingInfo);
+                    } else {
+                        System.out.println("⚠️ ERROR: chatPanelUI is NULL! Cannot show panel.");
+                    }
+
+                    // ✅ Afficher la bulle d'information
+                    showInfoBubble(paintingInfo);
+
+                    // ✅ Faire marcher le robot vers le tableau
+                    if (robot != null) {
+                        startRobotWalkTowardsPainting(geom);
+                        playAnimation("Talk"); // Animation de parole
+                    }
+
                 } else {
-                    System.out.println("⚠️ ERROR: chatPanelUI is NULL! Cannot show panel.");
+                    System.out.println("⚠️ Objet cliqué (pas un tableau) : " + name);
                 }
-
-                // ✅ Afficher la bulle d'information
-                showInfoBubble(paintingInfo);
-
-                // ✅ Faire marcher le robot vers le tableau
-                if (robot != null) {
-                    startRobotWalkTowardsPainting(geom);
-                    playAnimation("Talk"); // Animation de parole
-                }
-
             } else {
-                System.out.println("⚠️ Objet cliqué (pas un tableau) : " + name);
+                System.out.println("⚠️ Aucun objet cliqué");
             }
-        } else {
-            System.out.println("⚠️ Aucun objet cliqué");
+        } catch (Exception e) {
+            System.err.println("❌ CRITICAL ERROR in detectPaintingClick():");
+            e.printStackTrace();
+            // Don't crash the app, just log the error
         }
     }
 
@@ -985,10 +999,11 @@ private void createWall(String name, float width, float height, float depth,
         ResultSet res = null;
 
         try {
+            System.out.println("🔍 Querying database for painting: " + paintingName);
             res = this.db.getPaintingById(paintingName);
 
-            if (res.next()) {
-                System.out.print("id : " + res.getString("id") + ", ");
+            if (res != null && res.next()) {
+                System.out.print("✅ Found painting - id : " + res.getString("id") + ", ");
                 System.out.print("title : " + res.getString("title") + ", ");
                 System.out.print("artist : " + res.getString("artist") + ", ");
                 System.out.println("year : " + res.getInt("year"));
@@ -998,20 +1013,31 @@ private void createWall(String name, float width, float height, float depth,
                 res.close();
 
                 return description;
+            } else {
+                System.err.println("⚠️ No painting found in database with id: " + paintingName);
+                return "Painting information not available.";
             }
         } catch (SQLException e) {
-            System.out.println("Error getting painting.");
+            System.err.println("❌ DATABASE ERROR: Could not retrieve painting info!");
+            System.err.println("❌ SQLException: " + e.getMessage());
+            System.err.println("⚠️ Make sure Docker PostgreSQL container is running:");
+            System.err.println("   docker ps  (to check if container is running)");
+            System.err.println("   docker start my-postgres-container  (to start it)");
             e.printStackTrace();
+            return null; // Signal database error
+        } catch (Exception e) {
+            System.err.println("❌ UNEXPECTED ERROR getting painting info:");
+            e.printStackTrace();
+            return null;
         } finally {
             try {
                 if (res != null) res.close();
             } catch (SQLException e) {
+                System.err.println("⚠️ Error closing ResultSet:");
                 e.printStackTrace();
             }
         }
-        return null;
     }
-
     /**
      * ✅ Affiche la réponse de l'IA dans la bulle du robot
      */

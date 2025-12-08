@@ -2,6 +2,8 @@ package org.example.scene;
 
 
 import com.jme3.app.SimpleApplication;
+import com.jme3.collision.CollisionResult;
+import com.jme3.collision.CollisionResults;
 import com.jme3.font.BitmapFont;
 import com.jme3.font.BitmapText;
 import com.jme3.input.KeyInput;
@@ -15,6 +17,7 @@ import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
 import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
+import com.jme3.math.Ray;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Spatial;
@@ -40,6 +43,7 @@ public class JmeMetApp extends SimpleApplication {
     private BitmapText crosshair;
     private BitmapText instructions;
     private MetSceneManager  metSceneManager ;
+    private float minDistance = 2.5f;
 
 
 
@@ -167,15 +171,17 @@ public class JmeMetApp extends SimpleApplication {
      */
     private void setupCamera() {
         // Position de départ de la caméra
-        cam.setLocation(new Vector3f(0, 3f, 40f));
+        cam.setLocation(new Vector3f(0, 3f, 30f));
         cam.lookAt(new Vector3f(0, 3f, 0), Vector3f.UNIT_Y);
 
         // Paramètres de la caméra
         cam.setFrustumPerspective(45f, (float) cam.getWidth() / cam.getHeight(), 0.1f, 1000f);
 
         // Vitesse de déplacement par défaut
-        flyCam.setMoveSpeed(walkSpeed);
+//        flyCam.setMoveSpeed(walkSpeed);
         flyCam.setEnabled(true);
+        flyCam.setMoveSpeed(0);
+        flyCam.unregisterInput();
     }
 
 
@@ -303,61 +309,132 @@ public class JmeMetApp extends SimpleApplication {
 
     @Override
     public void simpleUpdate(float tpf) {
-        // ✅ Vérifier que metSceneManager  est initialisé
-        if (metSceneManager  == null || metSceneManager .getRobot() == null) {
-            return; // Attendre que le loading soit terminé
+        // 1. Safety Check: Don't do anything if scene isn't loaded
+        if (metSceneManager == null || !metSceneManager.isSceneReady() || metSceneManager.getRobot() == null) {
+            return;
         }
 
-        Vector3f camPos = cam.getLocation();
+        // 2. Stop movement if Chat Panel is open
+        if (metSceneManager.isChatPanelVisible()) {
+            return;
+        }
 
-        // ✅ Ne pas animer le robot si le chat panel est ouvert
-        if (!metSceneManager .isChatPanelVisible()) {
-            if (camPos.distance(lastCamPos) > 0.05f) {
-                if (!isMoving) {
-                    metSceneManager .playAnimation("Walk");
-                    isMoving = true;
+        // ==========================================
+        // 🛑 COLLISION DETECTION LOGIC
+        // ==========================================
+        boolean blockedForward = false;
+
+        if (moveForward) {
+            Vector3f rayDir = cam.getDirection().clone();
+            rayDir.y = 0;
+            rayDir.normalizeLocal();
+
+            Ray ray = new Ray(cam.getLocation(), rayDir);
+            // Increase limit slightly to ensure we catch walls
+            ray.setLimit(minDistance + 2f);
+
+            CollisionResults results = new CollisionResults();
+            metSceneManager.getGalleryNode().collideWith(ray, results);
+
+            if (results.size() > 0) {
+                CollisionResult closest = results.getClosestCollision();
+
+                // --- DEBUG PRINT ---
+                System.out.println("⚠️ HIT: " + closest.getGeometry().getName());
+                System.out.println("   Distance: " + closest.getDistance());
+                // -------------------
+
+                if (closest.getDistance() < minDistance) {
+                    blockedForward = true;
+                    System.out.println("⛔ BLOCKED! Too close to wall.");
                 }
             } else {
-                if (isMoving) {
-                    metSceneManager .playAnimation("Idle");
-                    isMoving = false;
-                }
+                System.out.println("✅ Path Clear");
             }
         }
 
-        lastCamPos.set(camPos.clone());
+        // ==========================================
+        // 🚶 MANUAL MOVEMENT LOGIC
+        // ==========================================
+        Vector3f camDir = cam.getDirection().clone().multLocal(walkSpeed * tpf);
+        Vector3f camLeft = cam.getLeft().clone().multLocal(walkSpeed * tpf);
 
-        // Limites de hauteur
+        // Flatten to X/Z plane (FPS style walking)
+        camDir.y = 0;
+        camLeft.y = 0;
+
+        Vector3f walkDirection = new Vector3f(0, 0, 0);
+
+        // 3. Normalize! (CRITICAL FIX: This ensures consistent speed even if looking up/down)
+        camDir.normalizeLocal().multLocal(walkSpeed * tpf);
+        camLeft.normalizeLocal().multLocal(walkSpeed * tpf);
+
+        // 4. Apply movement
+        // "W" key
+        if (moveForward && !blockedForward) {
+            walkDirection.addLocal(camDir);
+        }
+        // "S" key (Always allowed)
+        if (moveBackward) {
+            walkDirection.addLocal(camDir.negate());
+        }
+        // "A" key
+        if (moveLeft) {
+            walkDirection.addLocal(camLeft);
+        }
+        // "D" key
+        if (moveRight) {
+            walkDirection.addLocal(camLeft.negate());
+        }
+
+        // 5. Final Application
+        cam.setLocation(cam.getLocation().add(walkDirection));
+
+
+        // ==========================================
+        // 🤖 ROBOT & ANIMATION LOGIC
+        // ==========================================
+
+        // Detect if player is actually moving for animation trigger
+        if (walkDirection.length() > 0) {
+            if (!isMoving) {
+                metSceneManager.playAnimation("Walk");
+                isMoving = true;
+            }
+        } else {
+            if (isMoving) {
+                metSceneManager.playAnimation("Idle");
+                isMoving = false;
+            }
+        }
+
+        // Keep Robot in front of camera
+        Vector3f camPos = cam.getLocation();
+
+        // Standard height checks
         if (camPos.y < 2f) cam.setLocation(new Vector3f(camPos.x, 2f, camPos.z));
         if (camPos.y > 8f) cam.setLocation(new Vector3f(camPos.x, 8f, camPos.z));
 
-        // ✅ Robot DEVANT la caméra
+        // Calculate Robot position (Always in front)
         Vector3f camDirection = cam.getDirection().normalize();
-        Vector3f robotPos = metSceneManager .getRobot().getLocalTranslation();
+        Vector3f robotPos = metSceneManager.getRobot().getLocalTranslation();
 
         float distanceInFront = 3.5f;
+        Vector3f offset = new Vector3f(camDirection.x * distanceInFront, 0, camDirection.z * distanceInFront);
+        Vector3f newPos = new Vector3f(camPos.x + offset.x, robotPos.y, camPos.z + offset.z);
 
-        Vector3f offset = new Vector3f(
-                camDirection.x * distanceInFront,
-                0,
-                camDirection.z * distanceInFront
-        );
+        // Only update robot pos if NOT staying near painting
+        // (You'll need to expose a getter for robotStayingNearPainting in SceneManager if you want strict control here,
+        // but your SceneManager handles its own logic well)
+        metSceneManager.getRobot().setLocalTranslation(newPos);
+        metSceneManager.getRobot().lookAt(camPos, Vector3f.UNIT_Y);
 
-        Vector3f newPos = new Vector3f(
-                camPos.x + offset.x,
-                robotPos.y,
-                camPos.z + offset.z
-        );
+        // Call SceneManager update
+        metSceneManager.update(tpf, cam);
 
-        metSceneManager .getRobot().setLocalTranslation(newPos);
-        metSceneManager .getRobot().lookAt(camPos, Vector3f.UNIT_Y);
-
-        // ✅ Mettre à jour la scène (bulle, timer, etc.)
-        metSceneManager .update(tpf, cam);
-
-        // ✅ Mettre à jour la couleur du réticule
-        if (crosshair != null && !metSceneManager .isChatPanelVisible()) {
-            boolean lookingAt = metSceneManager .isLookingAtPainting();
+        // Update Crosshair color
+        if (crosshair != null) {
+            boolean lookingAt = metSceneManager.isLookingAtPainting();
             crosshair.setColor(lookingAt ? ColorRGBA.Green : ColorRGBA.White);
         }
     }

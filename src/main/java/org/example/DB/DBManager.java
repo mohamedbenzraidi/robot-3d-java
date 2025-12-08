@@ -14,10 +14,23 @@ public class DBManager {
     public DBManager(){
         this.db = new DBConnection();
         this.conn = this.db.getConnection();
+        if (this.conn == null) {
+            System.err.println("⚠️ WARNING: Database connection could not be established!");
+            System.err.println("⚠️ The application will continue, but database features will not work.");
+            System.err.println("⚠️ Please start the Docker container and restart the application.");
+        } else {
+            System.out.println("✅ DBManager initialized with active database connection");
+        }
     }
 
     public void closeConnection(){
-        db.closeConnection(this.conn);
+        try {
+            if(!this.conn.isClosed())
+                db.closeConnection(this.conn);
+        } catch (SQLException e) {
+            System.out.println("✅ Database connection already closed!");
+            e.printStackTrace();
+        }
     }
 
     public void createTable(String query){
@@ -116,18 +129,31 @@ public class DBManager {
     }
 
     public ResultSet getPaintingById(String id){
+        // ✅ Check if connection is null (database not available)
+        if (this.conn == null) {
+            System.err.println("❌ ERROR: Database connection is null! Cannot query painting: " + id);
+            System.err.println("⚠️ Make sure Docker PostgreSQL container is running.");
+            return null;
+        }
+
         try{
             if (this.stmt != null && !this.stmt.isClosed()) {
                 this.stmt.close();
             }
             this.stmt = this.conn.createStatement();
+            System.out.println("🔍 Executing query: SELECT * FROM Paintings WHERE id ='" + id + "';");
             return this.stmt.executeQuery("SELECT * FROM Paintings WHERE id ='"+id+"';");
         } catch (SQLException e) {
-            System.out.println("Error Reading.");
+            System.err.println("❌ SQL ERROR reading painting with id: " + id);
+            System.err.println("❌ SQLException: " + e.getMessage());
+            e.printStackTrace();
+        } catch (Exception e) {
+            System.err.println("❌ UNEXPECTED ERROR querying database:");
             e.printStackTrace();
         }
         return null;
     }
+
 
 
     public void dropTable(String table) {

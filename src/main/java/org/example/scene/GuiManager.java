@@ -48,7 +48,7 @@ public class GuiManager extends Application {
 
         HBox cardRow2 = new HBox();
         cardRow2.setAlignment(Pos.CENTER);
-        cardRow2.getChildren().add(createCard("British Museum", "src/main/resources/Textures/british_museum.png", 3));
+        cardRow2.getChildren().add(createCard("Musée d'Orsay", "src/main/resources/Textures/Musée d'Orsay.jpg", 3));
 
         VBox cardsContainer = new VBox(25);
         cardsContainer.getChildren().addAll(cardRow1, cardRow2);
@@ -135,8 +135,8 @@ public class GuiManager extends Application {
                     break;
 
                 case 3:
-//                    new Thread(JmeBritishApp::main).start();
-//                    primaryStage.hide();
+                    new Thread(JmeThApp::main).start();
+                    primaryStage.hide();
                     break;
                 default:
                     System.out.println("Error: unknown number!");
