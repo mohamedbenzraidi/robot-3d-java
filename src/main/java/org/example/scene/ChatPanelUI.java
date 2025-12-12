@@ -8,7 +8,10 @@ import com.simsilica.lemur.component.QuadBackgroundComponent;
 import com.simsilica.lemur.component.SpringGridLayout;
 import com.simsilica.lemur.event.CursorEventControl;
 import com.simsilica.lemur.event.DragHandler;
+import org.example.TTS.TTSService;
 import org.example.ai.ChatBot;
+import org.example.config.ConfigLoader;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,6 +30,7 @@ public class ChatPanelUI {
 
     private ChatBot chatBot;
     private String currentPaintingContext;
+
 
     public ChatPanelUI(SimpleApplication app, Object sceneManager) {
         this.app = app;
@@ -128,7 +132,7 @@ public class ChatPanelUI {
 
         // Initialiser ChatBot avec la clé API
         if (chatBot == null) {
-            String key = "AIzaSyATToTi4ZSATY44gUk3pcpngYXccNQUHy0";
+            String key = ConfigLoader.get("google.api.key");
             if (key != null && !key.isEmpty()) {
                 try {
                     chatBot = new ChatBot(key);
@@ -268,6 +272,8 @@ public class ChatPanelUI {
                     if (!messageHistory.isEmpty() && messageHistory.get(messageHistory.size() - 1).startsWith("LOADING:")) {
                         messageHistory.remove(messageHistory.size() - 1);
                     }
+
+                    TTSService.say(reply);
 
                     // Afficher la réponse de l'AI
                     addMessage("AI", reply);
