@@ -107,11 +107,11 @@ public class SceneManager {
     public void setAssetsToLoad(){
         this.assetLoader
                 .addMaterial("Common/MatDefs/Light/Lighting.j3md", "defMat")
+                .addMaterial("Common/MatDefs/Misc/Unshaded.j3md", "unshMat")
                 .addTexture("Textures/marble_floor.png", "marble_floor")
                 .addTexture("Textures/wall_marble.png", "wall_marble")
                 .addTexture("Textures/decore_marble_floor.png", "decore_marble_floor")
-                .addModel("Models/robot.glb", "robot")
-                .addTexture("Textures/texture.png", "robotTexture");
+                .addModel("Models/Robot/scene.gltf", "robot");
 
         String[] paths_left = {"painting1.jpg",
                 "painting2.jpg",
@@ -511,16 +511,20 @@ public class SceneManager {
         // Toile
         Quad canvas = new Quad(width, height);
         Geometry canvasGeom = new Geometry(name.split("_")[0] + "_canvas", canvas);
-        Material canvasMat = this.assetLoader.getMaterial("defMat").clone();
+        Material canvasMat = this.assetLoader.getMaterial("unshMat").clone();
 
-        // IMPORTANT: Charger votre texture ici
         Texture paintingTex = this.assetLoader.getTexture(Textkey);
-        canvasMat.setTexture("DiffuseMap", paintingTex);
+        paintingTex.setMinFilter(Texture.MinFilter.Trilinear);
+        paintingTex.setMagFilter(Texture.MagFilter.Bilinear);
+        paintingTex.setAnisotropicFilter(16);
 
-        // Couleur temporaire pour démonstration
-        canvasMat.setColor("Diffuse", new ColorRGBA(0.8f, 0.75f, 0.7f, 1f));
-        canvasMat.setColor("Ambient", new ColorRGBA(0.6f, 0.55f, 0.5f, 1f));
-        canvasMat.setBoolean("UseMaterialColors", true);
+        // IMPORTANT: Unshaded uses "ColorMap", Lighting uses "DiffuseMap"
+        canvasMat.setTexture("ColorMap", paintingTex);
+
+//        // Couleur temporaire pour démonstration
+//        canvasMat.setColor("Diffuse", new ColorRGBA(0.8f, 0.75f, 0.7f, 1f));
+//        canvasMat.setColor("Ambient", new ColorRGBA(0.6f, 0.55f, 0.5f, 1f));
+//        canvasMat.setBoolean("UseMaterialColors", true);
 
         canvasGeom.setMaterial(canvasMat);
         canvasGeom.setLocalTranslation(-width / 2, -height / 2, 0.06f);
@@ -631,49 +635,22 @@ public class SceneManager {
     }
 
     public void loadRobot() {
-            robotManager = new RobotManager(this.assetManager);
-            robotManager.setRobot(rootNode, assetLoader);
-            robot = robotManager.getRobot();
-            robot.scale(1f);
+        robotManager = new RobotManager(this.assetManager);
+        robotManager.setRobot(rootNode, assetLoader);
+        robot = robotManager.getRobot();
+        robot.scale(0.8f);
 
+        app.getRootNode().attachChild(robot);
 
+        // Add lights specifically for the robot
+        DirectionalLight robotLight = new DirectionalLight();
+        robotLight.setColor(ColorRGBA.White.mult(1.2f));
+        robotLight.setDirection(new Vector3f(-0.5f, -1f, -0.3f).normalizeLocal());
+        robot.addLight(robotLight);
 
-            BoundingBox bbox = (BoundingBox) robot.getWorldBound();
-            float minY = 0.1f + bbox.getYExtent();
-            robot.setLocalTranslation(0, minY, 0);
-
-            app.getRootNode().attachChild(robot);
-
-            animComposer = robot.getControl(AnimComposer.class);
-            if (animComposer != null) {
-                System.out.println("✅ Animations disponibles : " + animComposer.getAnimClipsNames());
-                if (animComposer.getAnimClipsNames().contains("Idle")) {
-                    animComposer.setCurrentAction("Idle");
-                } else {
-                    String firstAnim = animComposer.getAnimClipsNames().stream().findFirst().orElse(null);
-                    if (firstAnim != null) animComposer.setCurrentAction(firstAnim);
-                }
-            } else {
-                System.out.println("⚠️ Aucun AnimComposer trouvé sur le modèle.");
-            }
-
-            DirectionalLight robotLight = new DirectionalLight();
-            robotLight.setColor(ColorRGBA.White.mult(1.2f));
-            robotLight.setDirection(new Vector3f(-0.5f, -1f, -0.3f).normalizeLocal());
-            robot.addLight(robotLight);
-
-            AmbientLight softAmbient = new AmbientLight();
-            softAmbient.setColor(ColorRGBA.White.mult(0.3f));
-            robot.addLight(softAmbient);
-    }
-
-    public void playAnimation(String animName) {
-        if (animComposer != null && animComposer.getAnimClipsNames().contains(animName)) {
-            animComposer.setCurrentAction(animName);
-            System.out.println("🎥 Animation jouée : " + animName);
-        } else {
-            System.out.println("⚠️ Animation '" + animName + "' introuvable.");
-        }
+        AmbientLight softAmbient = new AmbientLight();
+        softAmbient.setColor(ColorRGBA.White.mult(0.3f));
+        robot.addLight(softAmbient);
     }
 
     /**
@@ -701,25 +678,32 @@ public class SceneManager {
         }
         //  NOUVEAU : Cacher le robot et la bulle quand on ferme le panel
         hideRobot();
+        // Forcer la fermeture de la bulle aussi
+        hideBubble();
     }
+
+    /**
+     * 🔇 Cache la bulle d'info immédiatement
+     */
+    public void hideBubble() {
+        bubbleDisplayTime = 0f;
+        if (infoBubbleNode != null) {
+            infoBubbleNode.setCullHint(Spatial.CullHint.Always);
+        }
+    }
+
+
 
     /**
      * ✅ NOUVEAU : Cache le robot et la bulle
      */
     public void hideRobot() {
-        // Réinitialiser l'état du robot
-        robotStayingNearPainting = false;
-        currentActivePainting = null;
 
         // Cacher la bulle
         if (infoBubbleNode != null) {
             infoBubbleNode.setCullHint(Spatial.CullHint.Always);
         }
 
-        // Arrêter l'animation de parole
-        if (animComposer != null) {
-            playAnimation("Idle");
-        }
 
         System.out.println("🚫 Robot et bulle cachés");
     }
@@ -729,9 +713,6 @@ public class SceneManager {
     // ✅ NOUVELLES MÉTHODES POUR LA BULLE ET LE CLIC
     // ✅ ============================================
 
-    /**
-     * ✅ Initialise la détection de clic et crée la bulle 3D
-     */
     /**
      * ✅ Initialise la détection de clic et crée la bulle 3D
      */
@@ -872,12 +853,6 @@ public class SceneManager {
                     // ✅ Afficher la bulle d'information
                     showInfoBubble(paintingInfo);
 
-                    // ✅ Faire marcher le robot vers le tableau
-                    if (robot != null) {
-                        startRobotWalkTowardsPainting(geom);
-                        playAnimation("Talk"); // Animation de parole
-                    }
-
                 } else {
                     System.out.println("⚠️ Objet cliqué (pas un tableau) : " + name);
                 }
@@ -970,11 +945,7 @@ public class SceneManager {
      * ✅ Affiche la réponse de l'IA dans la bulle du robot
      */
     public void showRobotSpeech(String text) {
-        if (bubbleText != null) {
-            // Couper le texte s'il est trop long pour la bulle
-            String display = text.length() > 100 ? text.substring(0, 97) + "..." : text;
-            showInfoBubble(display);
-        }
+        System.out.println("🤖 AI Speech (Audio only): " + text);
     }
 
     /**
@@ -989,50 +960,8 @@ public class SceneManager {
         }
     }
 
-    /**
-     * ✅ Démarre le mouvement du robot vers le tableau
-     */
-    private void startRobotWalkTowardsPainting(Geometry painting) {
-        if (robot == null) return;
 
-        // ✅ Sauvegarder le tableau actif
-        currentActivePainting = painting;
-        robotStayingNearPainting = true;
-
-        robotStartPosition.set(robot.getLocalTranslation());
-
-        // Calculer la position cible (1.5 mètres devant le tableau)
-        Vector3f paintingPos = painting.getWorldTranslation();
-        Vector3f paintingNormal = painting.getWorldRotation().mult(Vector3f.UNIT_Z);
-
-        robotTargetPosition.set(paintingPos.add(paintingNormal.mult(1.5f)));
-        robotTargetPosition.y = robotStartPosition.y; // Garder la même hauteur
-
-        // Orienter le robot vers le tableau (VERTICAL uniquement)
-        Vector3f direction = paintingPos.subtract(robotStartPosition);
-        direction.y = 0; // Ignorer la composante verticale pour rester droit
-        direction.normalizeLocal();
-
-        float angle = FastMath.atan2(direction.x, direction.z);
-        robot.setLocalRotation(new Quaternion().fromAngleAxis(angle, Vector3f.UNIT_Y));
-
-        // Démarrer l'animation de marche
-        robotWalking = true;
-        robotWalkTime = 0f;
-        robotWalkProgress = 0f;
-
-        playAnimation("Walk");
-
-        System.out.println("🚶 Robot commence à marcher vers le tableau - RESTERA près du tableau");
-    }
-
-    /**
-     * ✅ Méthode update à appeler depuis JmeApp.simpleUpdate()
-     */
     public void update(float tpf, com.jme3.renderer.Camera cam) {
-        //  Gérer le mouvement du robot vers le tableau
-        updateRobotWalk(tpf);
-
         //  Mettre à jour la position de la bulle
         updateInfoBubblePosition(cam);
         updateBubbleTimer(tpf);
@@ -1052,73 +981,22 @@ public class SceneManager {
         }
     }
 
-    /**
-     * ✅ Met à jour le mouvement du robot pendant qu'il marche
-     */
-    private void updateRobotWalk(float tpf) {
-        if (robotWalking && robot != null) {
-            robotWalkTime += tpf;
-            robotWalkProgress = Math.min(robotWalkTime / ROBOT_WALK_DURATION, 1f);
 
-            // Interpolation linéaire entre position de départ et cible
-            Vector3f currentPos = robotStartPosition.interpolateLocal(robotTargetPosition, robotWalkProgress);
-            robot.setLocalTranslation(currentPos);
-
-            // Fin du mouvement
-            if (robotWalkProgress >= 1f) {
-                robotWalking = false;
-                playAnimation("Talk"); // Revenir à l'animation de parole
-                System.out.println("✅ Robot arrivé - RESTE près du tableau");
-            }
-        }
-
-        // ✅ NOUVEAU : Garder le robot près du tableau actif
-        if (robotStayingNearPainting && currentActivePainting != null && robot != null && !robotWalking) {
-            // Positionner le robot devant le tableau
-            Vector3f paintingPos = currentActivePainting.getWorldTranslation();
-            Vector3f paintingNormal = currentActivePainting.getWorldRotation().mult(Vector3f.UNIT_Z);
-
-            Vector3f targetPos = paintingPos.add(paintingNormal.mult(1.5f));
-            targetPos.y = robot.getLocalTranslation().y;
-
-            robot.setLocalTranslation(targetPos);
-
-            // ✅ CORRECTION : Garder le robot VERTICAL (pas incliné)
-            // Calculer seulement la rotation Y (yaw) pour regarder le tableau
-            Vector3f direction = paintingPos.subtract(targetPos);
-            direction.y = 0; // Ignorer la composante verticale
-            direction.normalizeLocal();
-
-            // Calculer l'angle de rotation autour de l'axe Y
-            float angle = FastMath.atan2(direction.x, direction.z);
-            robot.setLocalRotation(new Quaternion().fromAngleAxis(angle, Vector3f.UNIT_Y));
-        }
-    }
-
-    /**
-     * ✅ Met à jour la position de la bulle pour qu'elle suive le robot
-     */
     private void updateInfoBubblePosition(com.jme3.renderer.Camera cam) {
-        // ✅ Afficher la bulle seulement si le timer est actif
         if (bubbleDisplayTime > 0 && robot != null) {
-            // ✅ Positionner la bulle AU-DESSUS du robot
             Vector3f robotPos = robot.getWorldTranslation();
-            BoundingBox bbox = (BoundingBox) robot.getWorldBound();
-            float robotHeight = bbox.getYExtent() * 2;
 
+            // Adjust height based on floating position
             Vector3f bubblePos = new Vector3f(
                     robotPos.x,
-                    robotPos.y + robotHeight + 1.2f,
+                    robotPos.y + 1.2f,
                     robotPos.z
             );
 
             infoBubbleNode.setLocalTranslation(bubblePos);
-
-            // ✅ Orienter la bulle vers la caméra (billboard effect)
             infoBubbleNode.lookAt(cam.getLocation(), Vector3f.UNIT_Y);
-            infoBubbleNode.setCullHint(Spatial.CullHint.Never); // Visible
+            infoBubbleNode.setCullHint(Spatial.CullHint.Never);
         } else {
-            // Cacher la bulle si le timer est écoulé
             if (infoBubbleNode != null) {
                 infoBubbleNode.setCullHint(Spatial.CullHint.Always);
             }

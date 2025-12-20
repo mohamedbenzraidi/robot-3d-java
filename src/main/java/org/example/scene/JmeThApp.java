@@ -319,6 +319,13 @@ public class JmeThApp extends SimpleApplication {
 
         // 2. Stop movement if Chat Panel is open
         if (thSceneManager.isChatPanelVisible()) {
+            // ✅ NEW: While chat is open, force robot to look at the player
+            Spatial robot = thSceneManager.getRobot();
+            if (robot != null) {
+                robot.lookAt(cam.getLocation(), Vector3f.UNIT_Y);
+            }
+            // Also call update to keep the bubble floating correctly
+            thSceneManager.update(tpf, cam);
             return;
         }
 
@@ -392,47 +399,34 @@ public class JmeThApp extends SimpleApplication {
 
 
         // ==========================================
-        // 🤖 ROBOT & ANIMATION LOGIC
+        // 🤖 FLOATING ROBOT LOGIC
         // ==========================================
+        Spatial robot = thSceneManager.getRobot();
 
-        // Detect if player is actually moving for animation trigger
-        if (walkDirection.length() > 0) {
-            if (!isMoving) {
-                thSceneManager.playAnimation("Walk");
-                isMoving = true;
-            }
-        } else {
-            if (isMoving) {
-                thSceneManager.playAnimation("Idle");
-                isMoving = false;
-            }
+        if (robot != null) {
+            Vector3f camPos = cam.getLocation();
+            Vector3f camDirection = cam.getDirection();
+            Vector3f camLeftSide = cam.getLeft();
+
+            // Position: Forward and to the Right of camera
+            Vector3f forwardOffset = camDirection.mult(2.0f);
+            Vector3f rightOffset = camLeftSide.mult(-1.2f); // Negative Left = Right
+
+            Vector3f newRobotPos = camPos.add(forwardOffset).add(rightOffset);
+            newRobotPos.y = camPos.y - 0.5f;
+
+            robot.setLocalTranslation(newRobotPos);
+
+            // ✅ NEW: Logic for rotation when chat is NOT open (Default)
+            // Look parallel to the camera (forward) - appears as looking "left" relative to the robot's body
+            Vector3f lookTarget = camPos.add(forwardOffset).add(camDirection.mult(10f));
+            lookTarget.y = newRobotPos.y;
+
+            robot.lookAt(lookTarget, Vector3f.UNIT_Y);
         }
 
-        // Keep Robot in front of camera
-        Vector3f camPos = cam.getLocation();
-
-        // Standard height checks
-        if (camPos.y < 2f) cam.setLocation(new Vector3f(camPos.x, 2f, camPos.z));
-        if (camPos.y > 8f) cam.setLocation(new Vector3f(camPos.x, 8f, camPos.z));
-
-        // Calculate Robot position (Always in front)
-        Vector3f camDirection = cam.getDirection().normalize();
-        Vector3f robotPos = thSceneManager.getRobot().getLocalTranslation();
-
-        float distanceInFront = 3.5f;
-        Vector3f offset = new Vector3f(camDirection.x * distanceInFront, 0, camDirection.z * distanceInFront);
-        Vector3f newPos = new Vector3f(camPos.x + offset.x, robotPos.y, camPos.z + offset.z);
-
-        // Only update robot pos if NOT staying near painting
-        // (You'll need to expose a getter for robotStayingNearPainting in SceneManager if you want strict control here,
-        // but your SceneManager handles its own logic well)
-        thSceneManager.getRobot().setLocalTranslation(newPos);
-        thSceneManager.getRobot().lookAt(camPos, Vector3f.UNIT_Y);
-
-        // Call SceneManager update
         thSceneManager.update(tpf, cam);
 
-        // Update Crosshair color
         if (crosshair != null) {
             boolean lookingAt = thSceneManager.isLookingAtPainting();
             crosshair.setColor(lookingAt ? ColorRGBA.Green : ColorRGBA.White);

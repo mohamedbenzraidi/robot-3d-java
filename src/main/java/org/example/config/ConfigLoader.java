@@ -11,7 +11,7 @@ public class ConfigLoader {
 
         try(FileInputStream input = new FileInputStream("C:\\Users\\LENOVO\\Desktop\\robot-3d-java\\config.properties")){
             prop.load(input);
-            if(prop.getProperty(key) == null)System.out.println("fuck you");
+            if(prop.getProperty(key) == null) System.out.println("Error!!");
             return prop.getProperty(key);
         } catch (IOException e) {
             System.out.println("Could not load config.properties!");
