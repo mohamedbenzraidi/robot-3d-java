@@ -188,51 +188,9 @@
         </dependency>
 
         <dependency>
-            <groupId>de.dfki.mary</groupId>
-            <artifactId>marytts-runtime</artifactId>
-            <version>5.2</version>
-        </dependency>
-
-        <dependency>
-            <groupId>de.dfki.mary</groupId>
-            <artifactId>marytts-lang-fr</artifactId>
-            <version>5.2</version>
-        </dependency>
-
-        <dependency>
-            <groupId>de.dfki.mary</groupId>
-            <artifactId>voice-upmc-pierre-hsmm</artifactId>
-            <version>5.2</version>
-        </dependency>
-
-        <dependency>
-            <groupId>de.dfki.mary</groupId>
-            <artifactId>marytts-lang-en</artifactId>
-            <version>5.2</version>
-        </dependency>
-
-        <dependency>
-            <groupId>de.dfki.mary</groupId>
-            <artifactId>voice-cmu-slt-hsmm</artifactId>
-            <version>5.2</version>
-        </dependency>
-
-        <dependency>
             <groupId>com.github.pemistahl</groupId>
             <artifactId>lingua</artifactId>
             <version>1.2.2</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.moshi</groupId>
-            <artifactId>moshi</artifactId>
-            <version>1.15.0</version>
-        </dependency>
-
-        <dependency>
-            <groupId>javazoom</groupId>
-            <artifactId>jlayer</artifactId>
-            <version>1.0.1</version>
         </dependency>
 
         <dependency>
