@@ -197,8 +197,9 @@ public class JmeThApp extends SimpleApplication {
         inputManager.addMapping("Backward", new KeyTrigger(KeyInput.KEY_S), new KeyTrigger(KeyInput.KEY_DOWN));
         inputManager.addMapping("Left", new KeyTrigger(KeyInput.KEY_A), new KeyTrigger(KeyInput.KEY_LEFT));
         inputManager.addMapping("Right", new KeyTrigger(KeyInput.KEY_D), new KeyTrigger(KeyInput.KEY_RIGHT));
-        inputManager.addMapping("Jump", new KeyTrigger(KeyInput.KEY_SPACE));
+        inputManager.addMapping("Jump", new KeyTrigger(KeyInput.KEY_SPACE), new KeyTrigger(KeyInput.KEY_Q));
         inputManager.addMapping("Crouch", new KeyTrigger(KeyInput.KEY_LSHIFT));
+        inputManager.addMapping("Down", new KeyTrigger(KeyInput.KEY_E));
 
         // ✅ NOUVEAU : Mapping ESC personnalisé
         inputManager.addMapping("ESC_KEY", new KeyTrigger(KeyInput.KEY_ESCAPE));
@@ -261,6 +262,12 @@ public class JmeThApp extends SimpleApplication {
                             cam.setLocation(pos.add(0, 0.5f, 0));
                         }
                         break;
+                    case "Down":
+                        if (isPressed) {
+                            Vector3f pos = cam.getLocation();
+                            cam.setLocation(pos.add(0, -0.5f, 0));
+                        }
+                        break;
                     case "Crouch":
                         if (isPressed) {
                             flyCam.setMoveSpeed(walkSpeed * 0.5f);
@@ -284,7 +291,7 @@ public class JmeThApp extends SimpleApplication {
 
         // ✅ Enregistrer le listener avec ESC_KEY au lieu de Exit
         inputManager.addListener(actionListener, "Forward", "Backward", "Left", "Right",
-                "Jump", "Crouch", "ESC_KEY", "Click");
+                "Jump", "Crouch", "ESC_KEY", "Click", "Down");
     }
 
     @Override

@@ -123,7 +123,8 @@ public class JmeMetApp extends SimpleApplication {
     }
 
     private void setupCamera() {
-        cam.setLocation(new Vector3f(0, 3f, 30f));
+//        cam.setLocation(new Vector3f(0, 3f, 30f));
+        cam.setLocation(new Vector3f(0, 1f, 30f));
         cam.lookAt(new Vector3f(0, 3f, 0), Vector3f.UNIT_Y);
         cam.setFrustumPerspective(45f, (float) cam.getWidth() / cam.getHeight(), 0.1f, 1000f);
         flyCam.setEnabled(true);
@@ -136,10 +137,11 @@ public class JmeMetApp extends SimpleApplication {
         inputManager.addMapping("Backward", new KeyTrigger(KeyInput.KEY_S), new KeyTrigger(KeyInput.KEY_DOWN));
         inputManager.addMapping("Left", new KeyTrigger(KeyInput.KEY_A), new KeyTrigger(KeyInput.KEY_LEFT));
         inputManager.addMapping("Right", new KeyTrigger(KeyInput.KEY_D), new KeyTrigger(KeyInput.KEY_RIGHT));
-        inputManager.addMapping("Jump", new KeyTrigger(KeyInput.KEY_SPACE));
+        inputManager.addMapping("Jump", new KeyTrigger(KeyInput.KEY_SPACE), new KeyTrigger(KeyInput.KEY_Q));
         inputManager.addMapping("Crouch", new KeyTrigger(KeyInput.KEY_LSHIFT));
         inputManager.addMapping("ESC_KEY", new KeyTrigger(KeyInput.KEY_ESCAPE));
         inputManager.addMapping("Click", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
+        inputManager.addMapping("Down", new KeyTrigger(KeyInput.KEY_E));
 
         ActionListener actionListener = new ActionListener() {
             @Override
@@ -174,6 +176,12 @@ public class JmeMetApp extends SimpleApplication {
                             cam.setLocation(pos.add(0, 0.5f, 0));
                         }
                         break;
+                    case "Down":
+                        if (isPressed) {
+                            Vector3f pos = cam.getLocation();
+                            cam.setLocation(pos.add(0, -0.5f, 0));
+                        }
+                        break;
                     case "Crouch":
                         if (isPressed) flyCam.setMoveSpeed(walkSpeed * 0.5f);
                         else flyCam.setMoveSpeed(walkSpeed);
@@ -186,7 +194,7 @@ public class JmeMetApp extends SimpleApplication {
         };
 
         inputManager.addListener(actionListener, "Forward", "Backward", "Left", "Right",
-                "Jump", "Crouch", "ESC_KEY", "Click");
+                "Jump", "Crouch", "ESC_KEY", "Click", "Down");
     }
 
     @Override

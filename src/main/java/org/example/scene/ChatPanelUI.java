@@ -166,7 +166,8 @@ public class ChatPanelUI {
 
         // Center-Right positioning
         float x = app.getCamera().getWidth() - mainContainer.getPreferredSize().x - 20;
-        float y = app.getCamera().getHeight() / 1.5f;
+//        float y = app.getCamera().getHeight() / 1.5f;
+        float y = app.getCamera().getHeight() * 0.98f;
         mainContainer.setLocalTranslation(x, y, 0);
 
         // Reset UI State

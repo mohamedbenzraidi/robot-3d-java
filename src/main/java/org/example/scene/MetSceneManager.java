@@ -7,6 +7,7 @@ import com.jme3.collision.CollisionResult;
 import com.jme3.collision.CollisionResults;
 import com.jme3.font.BitmapFont;
 import com.jme3.font.BitmapText;
+import com.jme3.font.Rectangle;
 import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
 import com.jme3.light.SpotLight;
@@ -41,8 +42,9 @@ public class MetSceneManager {
     private BitmapText bubbleText;
     private Geometry bubbleBackground;
     private float bubbleDisplayTime = 0f;
-    private static final float BUBBLE_DURATION = 8f; // 8 secondes d'affichage
+//    private static final float BUBBLE_DURATION = 8f; // 8 secondes d'affichage
     private boolean sceneReady = false;
+    private Vector3f currentBubbleTargetPos = new Vector3f();
 
     // ✅ Chat Panel UI
     private ChatPanelUI chatPanelUI;
@@ -642,59 +644,54 @@ public class MetSceneManager {
     public void initializeClickDetection() {
         infoBubbleNode = new Node("InfoBubble");
 
-        Quad shadowQuad = new Quad(7.4f, 2.6f);
-        Geometry shadow = new Geometry("BubbleShadow", shadowQuad);
-        Material shadowMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        shadowMat.setColor("Color", new ColorRGBA(0f, 0f, 0f, 0.5f));
-        shadowMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        shadow.setMaterial(shadowMat);
-        shadow.setLocalTranslation(-3.7f, -0.15f, 0f);
-        infoBubbleNode.attachChild(shadow);
+        float baseW = 4.2f;
+        float baseH = 2.4f;
 
-        Quad outerBorderQuad = new Quad(7.2f, 2.4f);
-        Geometry outerBorder = new Geometry("BubbleOuterBorder", outerBorderQuad);
-        Material outerBorderMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        outerBorderMat.setColor("Color", new ColorRGBA(0.25f, 0.45f, 0.75f, 0.9f));
-        outerBorderMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        outerBorder.setMaterial(outerBorderMat);
-        outerBorder.setLocalTranslation(-3.6f, -0.1f, 0.005f);
-        infoBubbleNode.attachChild(outerBorder);
+        // ============ COUCHE 1 : CADRE (Anciennement OuterBorder) ============
+        // On ne garde qu'une seule bordure pour définir la forme
+        Quad frameQuad = new Quad(baseW + 0.2f, baseH + 0.2f);
+        Geometry frame = new Geometry("BubbleFrame", frameQuad);
+        Material frameMat = this.assetLoader.getMaterial("unshMat").clone();
+        frameMat.setColor("Color", new ColorRGBA(0.25f, 0.45f, 0.75f, 0.8f)); // Bleu clair
+        frameMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
+        frame.setMaterial(frameMat);
+        // Position de base (Z = 0)
+        frame.setLocalTranslation(-(baseW + 0.2f)/2f, -0.1f, 0f);
+        infoBubbleNode.attachChild(frame);
 
-        Quad innerBorderQuad = new Quad(7f, 2.2f);
-        Geometry innerBorder = new Geometry("BubbleInnerBorder", innerBorderQuad);
-        Material innerBorderMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        innerBorderMat.setColor("Color", new ColorRGBA(0.15f, 0.25f, 0.45f, 0.95f));
-        innerBorderMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        innerBorder.setMaterial(innerBorderMat);
-        innerBorder.setLocalTranslation(-3.5f, -0.05f, 0.01f);
-        infoBubbleNode.attachChild(innerBorder);
-
-        Quad bubbleQuad = new Quad(6.8f, 2f);
+        // ============ COUCHE 2 : FOND PRINCIPAL ============
+        Quad bubbleQuad = new Quad(baseW, baseH);
         bubbleBackground = new Geometry("BubbleBackground", bubbleQuad);
-        Material bubbleMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        bubbleMat.setColor("Color", new ColorRGBA(0.08f, 0.12f, 0.20f, 0.98f));
+        Material bubbleMat = this.assetLoader.getMaterial("unshMat").clone();
+        bubbleMat.setColor("Color", new ColorRGBA(0.05f, 0.1f, 0.2f, 0.95f)); // Bleu foncé profond
         bubbleMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
         bubbleBackground.setMaterial(bubbleMat);
-        bubbleBackground.setLocalTranslation(-3.4f, 0f, 0.015f);
+        // ✅ Écart de 0.05f pour séparer nettement du cadre et éviter les lignes
+        bubbleBackground.setLocalTranslation(-baseW/2f, 0f, 0.05f);
         infoBubbleNode.attachChild(bubbleBackground);
 
-        Quad highlightQuad = new Quad(6.6f, 0.3f);
-        Geometry highlight = new Geometry("BubbleHighlight", highlightQuad);
-        Material highlightMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        highlightMat.setColor("Color", new ColorRGBA(0.4f, 0.6f, 0.9f, 0.3f));
-        highlightMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        highlight.setMaterial(highlightMat);
-        highlight.setLocalTranslation(-3.3f, 1.6f, 0.02f);
-        infoBubbleNode.attachChild(highlight);
-
+        // ============ COUCHE 3 : TEXTE (AGRANDI) ============
         BitmapFont font = assetManager.loadFont("Interface/Fonts/Default.fnt");
         bubbleText = new BitmapText(font);
-        bubbleText.setSize(0.22f);
-        bubbleText.setColor(ColorRGBA.White);
-        bubbleText.setText(null);
-        bubbleText.setLocalTranslation(-3.2f, 1.1f, 0.025f);
-        infoBubbleNode.attachChild(bubbleText);
 
+
+        bubbleText.setSize(0.30f);
+        bubbleText.setColor(ColorRGBA.White);
+
+        float padding = 0.35f;
+        bubbleText.setBox(new Rectangle(
+                -baseW/2f + padding,
+                baseH - (padding/2f),
+                baseW - (padding*2),
+                baseH - padding
+        ));
+
+        bubbleText.setAlignment(BitmapFont.Align.Center);
+        bubbleText.setVerticalAlignment(BitmapFont.VAlign.Center);
+
+        bubbleText.setLocalTranslation(0f, 0f, 0.1f);
+
+        infoBubbleNode.attachChild(bubbleText);
         infoBubbleNode.setCullHint(Spatial.CullHint.Always);
         rootNode.attachChild(infoBubbleNode);
     }
@@ -706,14 +703,10 @@ public class MetSceneManager {
     public void detectPaintingClick() {
         try {
             CollisionResults results = new CollisionResults();
-            Vector2f screenCenter = new Vector2f(
-                    app.getCamera().getWidth() / 2f,
-                    app.getCamera().getHeight() / 2f
-            );
+            Vector2f screenCenter = new Vector2f(app.getCamera().getWidth() / 2f, app.getCamera().getHeight() / 2f);
 
             Vector3f origin = app.getCamera().getWorldCoordinates(screenCenter, 0f);
-            Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f)
-                    .subtractLocal(origin).normalizeLocal();
+            Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f).subtractLocal(origin).normalizeLocal();
 
             Ray ray = new Ray(origin, dir);
             rootNode.collideWith(ray, results);
@@ -721,25 +714,40 @@ public class MetSceneManager {
             if (results.size() > 0) {
                 CollisionResult closest = results.getClosestCollision();
                 Geometry geom = closest.getGeometry();
-
                 String name = geom.getName();
+
                 if (name.contains("canvas") || name.contains("painting")) {
-                    System.out.println("🖱️ Tableau cliqué : " + name);
+                    currentBubbleTargetPos = geom.getWorldTranslation().clone();
 
                     String paintingInfo = getPaintingInfo(name);
 
                     if (paintingInfo == null || paintingInfo.trim().isEmpty()) {
+                        System.err.println("⚠️ ERROR: Could not get painting info from database!");
+                        System.err.println("⚠️ Make sure Docker container is running:");
+                        System.err.println("   docker run --name my-postgres-container -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=tour_3d_db -p 5432:5432 -d postgres");
                         paintingInfo = "Database connection error. Please check if Docker container is running.";
                     }
 
+                    // ✅ Ouvrir le panneau de chat
+                    System.out.println("🔍 Checking chatPanelUI: " + (chatPanelUI == null ? "NULL ❌" : "OK ✅"));
+
                     if (chatPanelUI != null) {
+                        System.out.println("📞 Calling chatPanelUI.show()...");
                         chatPanelUI.show(paintingInfo);
+                    } else {
+                        System.out.println("⚠️ ERROR: chatPanelUI is NULL! Cannot show panel.");
                     }
 
-                   showInfoBubble(paintingInfo);
+                    showInfoBubble(paintingInfo);
+                } else {
+                    System.out.println("⚠️ Objet cliqué (pas un tableau) : " + name);
                 }
+            } else {
+                System.out.println("⚠️ Aucun objet cliqué");
             }
+
         } catch (Exception e) {
+            System.err.println("❌ CRITICAL ERROR in detectPaintingClick():");
             e.printStackTrace();
         }
     }
@@ -760,7 +768,7 @@ public class MetSceneManager {
 
         if (results.size() > 0) {
             String name = results.getClosestCollision().getGeometry().getName();
-            return name.contains("Canvas") || name.contains("Painting");
+            return name.contains("canvas") || name.contains("painting");
         }
         return false;
     }
@@ -799,18 +807,26 @@ public class MetSceneManager {
         System.out.println("🤖 AI Speech (Audio only): " + text);
     }
 
+    /**
+     * ✅ Affiche la bulle d'information au-dessus du robot
+     */
     private void showInfoBubble(String text) {
         if (bubbleText != null && infoBubbleNode != null) {
             bubbleText.setText(text);
+
+            float readingTime = 1.0f + (text.length() * 0.05f);
+
+            bubbleDisplayTime = Math.min(Math.max(readingTime, 3.0f), 15.0f);
+
             infoBubbleNode.setCullHint(Spatial.CullHint.Never);
-            bubbleDisplayTime = BUBBLE_DURATION;
+
+            System.out.println("💬 Bulle affichée pour " + bubbleDisplayTime + " secondes");
         }
     }
 
-    /**
-     * ✅ MODIFIED: Removed walk update calls
-     */
+
     public void update(float tpf, com.jme3.renderer.Camera cam) {
+        //  Mettre à jour la position de la bulle
         updateInfoBubblePosition(cam);
         updateBubbleTimer(tpf);
     }
@@ -818,30 +834,29 @@ public class MetSceneManager {
     private void updateBubbleTimer(float tpf) {
         if (bubbleDisplayTime > 0) {
             bubbleDisplayTime -= tpf;
+
             if (bubbleDisplayTime <= 0) {
                 if (infoBubbleNode != null) {
                     infoBubbleNode.setCullHint(Spatial.CullHint.Always);
                 }
+                System.out.println("⏱️ Temps écoulé - Bulle masquée");
             }
         }
     }
 
-    /**
-     * ✅ MODIFIED: Bubble follows floating robot
-     */
     private void updateInfoBubblePosition(com.jme3.renderer.Camera cam) {
-        if (bubbleDisplayTime > 0 && robot != null) {
-            Vector3f robotPos = robot.getWorldTranslation();
+        if (bubbleDisplayTime > 0 && currentBubbleTargetPos != null) {
+            Vector3f pos = currentBubbleTargetPos.clone();
 
-            // Adjust height based on floating position
-            Vector3f bubblePos = new Vector3f(
-                    robotPos.x,
-                    robotPos.y + 1.2f,
-                    robotPos.z
-            );
+            pos.y -= 3.2f;
 
-            infoBubbleNode.setLocalTranslation(bubblePos);
+            Vector3f dirToCam = cam.getLocation().subtract(pos).normalizeLocal();
+
+            pos.addLocal(dirToCam.mult(1.8f));
+
+            infoBubbleNode.setLocalTranslation(pos);
             infoBubbleNode.lookAt(cam.getLocation(), Vector3f.UNIT_Y);
+
             infoBubbleNode.setCullHint(Spatial.CullHint.Never);
         } else {
             if (infoBubbleNode != null) {

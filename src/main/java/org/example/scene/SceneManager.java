@@ -8,6 +8,7 @@ import com.jme3.collision.CollisionResult;
 import com.jme3.collision.CollisionResults;
 import com.jme3.font.BitmapFont;
 import com.jme3.font.BitmapText;
+import com.jme3.font.Rectangle;
 import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
 import com.jme3.light.SpotLight;
@@ -47,7 +48,7 @@ public class SceneManager {
     private BitmapText bubbleText;
     private Geometry bubbleBackground;
     private float bubbleDisplayTime = 0f;
-    private static final float BUBBLE_DURATION = 8f; // 8 secondes d'affichage
+//    private static final float BUBBLE_DURATION = 8f; // 8 secondes d'affichage
     private boolean sceneReady = false;
 
     // ✅ Chat Panel UI
@@ -64,6 +65,7 @@ public class SceneManager {
     // ✅ NOUVEAU : Tableau actif et robot qui reste
     private Geometry currentActivePainting = null;
     private boolean robotStayingNearPainting = false;
+    private Vector3f currentBubbleTargetPos = new Vector3f();
 
 
     // Dimensions de la galerie
@@ -717,100 +719,69 @@ public class SceneManager {
      * ✅ Initialise la détection de clic et crée la bulle 3D
      */
     public void initializeClickDetection() {
-        // ✅ CRÉATION DE LA BULLE 3D AVEC DESIGN MODERNE ET PROFESSIONNEL
         infoBubbleNode = new Node("InfoBubble");
 
-        // ============ COUCHE 1 : OMBRE PORTÉE ============
-        // Ombre plus grande et plus diffuse
-        Quad shadowQuad = new Quad(7.4f, 2.6f);
-        Geometry shadow = new Geometry("BubbleShadow", shadowQuad);
-        Material shadowMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        shadowMat.setColor("Color", new ColorRGBA(0f, 0f, 0f, 0.5f)); // Ombre plus prononcée
-        shadowMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        shadow.setMaterial(shadowMat);
-        shadow.setLocalTranslation(-3.7f, -0.15f, 0f);
-        infoBubbleNode.attachChild(shadow);
+        float baseW = 4.2f;
+        float baseH = 2.4f;
 
-        // ============ COUCHE 2 : BORDURE EXTÉRIEURE ============
-        // Bordure bleu clair pour effet de profondeur
-        Quad outerBorderQuad = new Quad(7.2f, 2.4f);
-        Geometry outerBorder = new Geometry("BubbleOuterBorder", outerBorderQuad);
-        Material outerBorderMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        outerBorderMat.setColor("Color", new ColorRGBA(0.25f, 0.45f, 0.75f, 0.9f)); // Bleu moyen
-        outerBorderMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        outerBorder.setMaterial(outerBorderMat);
-        outerBorder.setLocalTranslation(-3.6f, -0.1f, 0.005f);
-        infoBubbleNode.attachChild(outerBorder);
+        // ============ COUCHE 1 : CADRE (Anciennement OuterBorder) ============
+        // On ne garde qu'une seule bordure pour définir la forme
+        Quad frameQuad = new Quad(baseW + 0.2f, baseH + 0.2f);
+        Geometry frame = new Geometry("BubbleFrame", frameQuad);
+        Material frameMat = this.assetLoader.getMaterial("unshMat").clone();
+        frameMat.setColor("Color", new ColorRGBA(0.25f, 0.45f, 0.75f, 0.8f)); // Bleu clair
+        frameMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
+        frame.setMaterial(frameMat);
+        // Position de base (Z = 0)
+        frame.setLocalTranslation(-(baseW + 0.2f)/2f, -0.1f, 0f);
+        infoBubbleNode.attachChild(frame);
 
-        // ============ COUCHE 3 : BORDURE INTÉRIEURE ============
-        // Bordure bleu plus foncé
-        Quad innerBorderQuad = new Quad(7f, 2.2f);
-        Geometry innerBorder = new Geometry("BubbleInnerBorder", innerBorderQuad);
-        Material innerBorderMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        innerBorderMat.setColor("Color", new ColorRGBA(0.15f, 0.25f, 0.45f, 0.95f)); // Bleu foncé
-        innerBorderMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        innerBorder.setMaterial(innerBorderMat);
-        innerBorder.setLocalTranslation(-3.5f, -0.05f, 0.01f);
-        infoBubbleNode.attachChild(innerBorder);
-
-        // ============ COUCHE 4 : FOND PRINCIPAL ============
-        // Fond bleu foncé élégant (harmonisé avec le panel)
-        Quad bubbleQuad = new Quad(6.8f, 2f);
+        // ============ COUCHE 2 : FOND PRINCIPAL ============
+        Quad bubbleQuad = new Quad(baseW, baseH);
         bubbleBackground = new Geometry("BubbleBackground", bubbleQuad);
-        Material bubbleMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        bubbleMat.setColor("Color", new ColorRGBA(0.08f, 0.12f, 0.20f, 0.98f)); // Même couleur que le panel
+        Material bubbleMat = this.assetLoader.getMaterial("unshMat").clone();
+        bubbleMat.setColor("Color", new ColorRGBA(0.05f, 0.1f, 0.2f, 0.95f)); // Bleu foncé profond
         bubbleMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
         bubbleBackground.setMaterial(bubbleMat);
-        bubbleBackground.setLocalTranslation(-3.4f, 0f, 0.015f);
+        // ✅ Écart de 0.05f pour séparer nettement du cadre et éviter les lignes
+        bubbleBackground.setLocalTranslation(-baseW/2f, 0f, 0.05f);
         infoBubbleNode.attachChild(bubbleBackground);
 
-        // ============ COUCHE 5 : HIGHLIGHT (REFLET) ============
-        // Petit reflet en haut pour effet glossy
-        Quad highlightQuad = new Quad(6.6f, 0.3f);
-        Geometry highlight = new Geometry("BubbleHighlight", highlightQuad);
-        Material highlightMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        highlightMat.setColor("Color", new ColorRGBA(0.4f, 0.6f, 0.9f, 0.3f)); // Bleu clair transparent
-        highlightMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        highlight.setMaterial(highlightMat);
-        highlight.setLocalTranslation(-3.3f, 1.6f, 0.02f);
-        infoBubbleNode.attachChild(highlight);
-
-        // ============ COUCHE 6 : TEXTE ============
-        // Texte avec meilleure lisibilité
+        // ============ COUCHE 3 : TEXTE (AGRANDI) ============
         BitmapFont font = assetManager.loadFont("Interface/Fonts/Default.fnt");
         bubbleText = new BitmapText(font);
-        bubbleText.setSize(0.22f); // Plus grand pour meilleure lisibilité
-        bubbleText.setColor(ColorRGBA.White); // Blanc pur
-        bubbleText.setText(null);
-        bubbleText.setLocalTranslation(-3.2f, 1.1f, 0.025f); // Centré verticalement
+
+
+        bubbleText.setSize(0.30f);
+        bubbleText.setColor(ColorRGBA.White);
+
+        float padding = 0.35f;
+        bubbleText.setBox(new Rectangle(
+                -baseW/2f + padding,
+                baseH - (padding/2f),
+                baseW - (padding*2),
+                baseH - padding
+        ));
+
+        bubbleText.setAlignment(BitmapFont.Align.Center);
+        bubbleText.setVerticalAlignment(BitmapFont.VAlign.Center);
+
+        bubbleText.setLocalTranslation(0f, 0f, 0.1f);
+
         infoBubbleNode.attachChild(bubbleText);
-
-        // ✅ Rendre la bulle invisible au départ
         infoBubbleNode.setCullHint(Spatial.CullHint.Always);
-
         rootNode.attachChild(infoBubbleNode);
-
-        System.out.println("✅ Bulle 3D moderne créée avec 6 couches (ombre, bordures, fond, highlight, texte)");
     }
-
-
     /**
      * ✅ Détecte si on clique sur un tableau (utilise le CENTRE de l'écran)
      */
     public void detectPaintingClick() {
         try {
             CollisionResults results = new CollisionResults();
-
-            // ✅ Utiliser le CENTRE de l'écran au lieu du curseur
-            Vector2f screenCenter = new Vector2f(
-                    app.getCamera().getWidth() / 2f,
-                    app.getCamera().getHeight() / 2f
-            );
-
+            Vector2f screenCenter = new Vector2f(app.getCamera().getWidth() / 2f, app.getCamera().getHeight() / 2f);
 
             Vector3f origin = app.getCamera().getWorldCoordinates(screenCenter, 0f);
-            Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f)
-                    .subtractLocal(origin).normalizeLocal();
+            Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f).subtractLocal(origin).normalizeLocal();
 
             Ray ray = new Ray(origin, dir);
             rootNode.collideWith(ray, results);
@@ -818,22 +789,13 @@ public class SceneManager {
             if (results.size() > 0) {
                 CollisionResult closest = results.getClosestCollision();
                 Geometry geom = closest.getGeometry();
-
                 String name = geom.getName();
+
                 if (name.contains("canvas") || name.contains("painting")) {
-                    System.out.println("🖱️ Tableau cliqué : " + name);
+                    currentBubbleTargetPos = geom.getWorldTranslation().clone();
 
-                    // ✅ Réinitialiser l'ancien tableau si changement
-                    if (currentActivePainting != geom) {
-                        System.out.println("🔄 Changement de tableau - Réinitialisation");
-                        robotStayingNearPainting = false;
-                        currentActivePainting = null;
-                    }
-
-                    // ✅ Obtenir les infos du tableau
                     String paintingInfo = getPaintingInfo(name);
 
-                    // ✅ VÉRIFIER SI paintingInfo EST NULL (database error)
                     if (paintingInfo == null || paintingInfo.trim().isEmpty()) {
                         System.err.println("⚠️ ERROR: Could not get painting info from database!");
                         System.err.println("⚠️ Make sure Docker container is running:");
@@ -843,6 +805,7 @@ public class SceneManager {
 
                     // ✅ Ouvrir le panneau de chat
                     System.out.println("🔍 Checking chatPanelUI: " + (chatPanelUI == null ? "NULL ❌" : "OK ✅"));
+
                     if (chatPanelUI != null) {
                         System.out.println("📞 Calling chatPanelUI.show()...");
                         chatPanelUI.show(paintingInfo);
@@ -850,19 +813,17 @@ public class SceneManager {
                         System.out.println("⚠️ ERROR: chatPanelUI is NULL! Cannot show panel.");
                     }
 
-                    // ✅ Afficher la bulle d'information
                     showInfoBubble(paintingInfo);
-
                 } else {
                     System.out.println("⚠️ Objet cliqué (pas un tableau) : " + name);
                 }
             } else {
                 System.out.println("⚠️ Aucun objet cliqué");
             }
-        } catch (Exception e) {
+
+    } catch (Exception e) {
             System.err.println("❌ CRITICAL ERROR in detectPaintingClick():");
             e.printStackTrace();
-            // Don't crash the app, just log the error
         }
     }
 
@@ -954,9 +915,14 @@ public class SceneManager {
     private void showInfoBubble(String text) {
         if (bubbleText != null && infoBubbleNode != null) {
             bubbleText.setText(text);
+
+            float readingTime = 1.0f + (text.length() * 0.05f);
+
+            bubbleDisplayTime = Math.min(Math.max(readingTime, 3.0f), 15.0f);
+
             infoBubbleNode.setCullHint(Spatial.CullHint.Never);
-            bubbleDisplayTime = BUBBLE_DURATION; // Réinitialiser à 2 secondes
-            System.out.println("💬 Bulle affichée pour 2 secondes : " + text);
+
+            System.out.println("💬 Bulle affichée pour " + bubbleDisplayTime + " secondes");
         }
     }
 
@@ -972,29 +938,30 @@ public class SceneManager {
             bubbleDisplayTime -= tpf;
 
             if (bubbleDisplayTime <= 0) {
-                // Cacher la bulle après 2 secondes
                 if (infoBubbleNode != null) {
                     infoBubbleNode.setCullHint(Spatial.CullHint.Always);
                 }
-                System.out.println("⏱️ Bulle cachée après 2 secondes");
+                System.out.println("⏱️ Temps écoulé - Bulle masquée");
             }
         }
     }
 
-
+    /**
+     * ✅ Positionne la bulle SOUS le tableau cliqué et face à la caméra
+     */
     private void updateInfoBubblePosition(com.jme3.renderer.Camera cam) {
-        if (bubbleDisplayTime > 0 && robot != null) {
-            Vector3f robotPos = robot.getWorldTranslation();
+        if (bubbleDisplayTime > 0 && currentBubbleTargetPos != null) {
+            Vector3f pos = currentBubbleTargetPos.clone();
 
-            // Adjust height based on floating position
-            Vector3f bubblePos = new Vector3f(
-                    robotPos.x,
-                    robotPos.y + 1.2f,
-                    robotPos.z
-            );
+            pos.y -= 3.2f;
 
-            infoBubbleNode.setLocalTranslation(bubblePos);
+            Vector3f dirToCam = cam.getLocation().subtract(pos).normalizeLocal();
+
+            pos.addLocal(dirToCam.mult(1.8f));
+
+            infoBubbleNode.setLocalTranslation(pos);
             infoBubbleNode.lookAt(cam.getLocation(), Vector3f.UNIT_Y);
+
             infoBubbleNode.setCullHint(Spatial.CullHint.Never);
         } else {
             if (infoBubbleNode != null) {
@@ -1002,5 +969,4 @@ public class SceneManager {
             }
         }
     }
-
 }
