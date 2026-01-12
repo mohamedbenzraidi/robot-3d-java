@@ -9,5 +9,4 @@ App {
 
         GuiManager.launch(GuiManager.class, args);
     }
-
 }

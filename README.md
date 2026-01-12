@@ -313,7 +313,7 @@ docker run --name my-postgres-container \
   -e POSTGRES_DB=tour_3d_db \
   -p 5432:5432 \
   -d postgres
-
+docker run --name my-postgres-container -e POSTGRES_USER=user  -e POSTGRES_PASSWORD=password -e POSTGRES_DB=tour_3d_db -p 5432:5432 -d postgres
 # 2. Wait for startup
 sleep 5
 

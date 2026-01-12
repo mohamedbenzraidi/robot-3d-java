@@ -2,6 +2,8 @@ package org.example.scene;
 
 
 import com.jme3.app.SimpleApplication;
+import com.jme3.collision.CollisionResult;
+import com.jme3.collision.CollisionResults;
 import com.jme3.font.BitmapFont;
 import com.jme3.font.BitmapText;
 import com.jme3.input.KeyInput;
@@ -10,6 +12,7 @@ import com.jme3.input.controls.ActionListener;
 import com.jme3.input.controls.KeyTrigger;
 import com.jme3.input.controls.MouseButtonTrigger;
 import com.jme3.math.ColorRGBA;
+import com.jme3.math.Ray;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Spatial;
 import com.jme3.system.AppSettings;
@@ -30,6 +33,7 @@ public class JmeThApp extends SimpleApplication {
     private BitmapText crosshair;
     private BitmapText instructions;
     private ThSceneManager thSceneManager;
+    private float minDistance = 2.5f;
 
 
 
@@ -48,7 +52,7 @@ public class JmeThApp extends SimpleApplication {
 
         // IMPORTANT: Initialiser Lemur AVANT toute utilisation
         com.simsilica.lemur.GuiGlobals.initialize(this);
-        
+
         //  DÉSACTIVER le comportement par défaut de ESC
         if (inputManager.hasMapping(INPUT_MAPPING_EXIT)) {
             inputManager.deleteMapping(INPUT_MAPPING_EXIT);
@@ -172,9 +176,11 @@ public class JmeThApp extends SimpleApplication {
         cam.setFrustumPerspective(45f, (float) cam.getWidth() / cam.getHeight(), 0.1f, 1000f);
 
         // Vitesse de déplacement par défaut
-        flyCam.setMoveSpeed(walkSpeed);
+//        flyCam.setMoveSpeed(walkSpeed);
         flyCam.setEnabled(true);
-        
+        flyCam.setMoveSpeed(0);
+        flyCam.unregisterInput();
+
         // 🖱️ DÉSACTIVER COMPLÈTEMENT la souris
 //        flyCam.setDragToRotate(false);  // Pas besoin de maintenir
         flyCam.setRotationSpeed(3f);
@@ -191,8 +197,9 @@ public class JmeThApp extends SimpleApplication {
         inputManager.addMapping("Backward", new KeyTrigger(KeyInput.KEY_S), new KeyTrigger(KeyInput.KEY_DOWN));
         inputManager.addMapping("Left", new KeyTrigger(KeyInput.KEY_A), new KeyTrigger(KeyInput.KEY_LEFT));
         inputManager.addMapping("Right", new KeyTrigger(KeyInput.KEY_D), new KeyTrigger(KeyInput.KEY_RIGHT));
-        inputManager.addMapping("Jump", new KeyTrigger(KeyInput.KEY_SPACE));
+        inputManager.addMapping("Jump", new KeyTrigger(KeyInput.KEY_SPACE), new KeyTrigger(KeyInput.KEY_Q));
         inputManager.addMapping("Crouch", new KeyTrigger(KeyInput.KEY_LSHIFT));
+        inputManager.addMapping("Down", new KeyTrigger(KeyInput.KEY_E));
 
         // ✅ NOUVEAU : Mapping ESC personnalisé
         inputManager.addMapping("ESC_KEY", new KeyTrigger(KeyInput.KEY_ESCAPE));
@@ -255,6 +262,12 @@ public class JmeThApp extends SimpleApplication {
                             cam.setLocation(pos.add(0, 0.5f, 0));
                         }
                         break;
+                    case "Down":
+                        if (isPressed) {
+                            Vector3f pos = cam.getLocation();
+                            cam.setLocation(pos.add(0, -0.5f, 0));
+                        }
+                        break;
                     case "Crouch":
                         if (isPressed) {
                             flyCam.setMoveSpeed(walkSpeed * 0.5f);
@@ -278,7 +291,7 @@ public class JmeThApp extends SimpleApplication {
 
         // ✅ Enregistrer le listener avec ESC_KEY au lieu de Exit
         inputManager.addListener(actionListener, "Forward", "Backward", "Left", "Right",
-                "Jump", "Crouch", "ESC_KEY", "Click");
+                "Jump", "Crouch", "ESC_KEY", "Click", "Down");
     }
 
     @Override
@@ -306,62 +319,124 @@ public class JmeThApp extends SimpleApplication {
 
     @Override
     public void simpleUpdate(float tpf) {
-        // ✅ Vérifier que thSceneManager est initialisé
-        if (thSceneManager == null || thSceneManager.getRobot() == null) {
-            return; // Attendre que le loading soit terminé
+        // 1. Safety Check: Don't do anything if scene isn't loaded
+        if (thSceneManager == null || !thSceneManager.isSceneReady() || thSceneManager.getRobot() == null) {
+            return;
         }
 
-        Vector3f camPos = cam.getLocation();
+        // 2. Stop movement if Chat Panel is open
+        if (thSceneManager.isChatPanelVisible()) {
+            // ✅ NEW: While chat is open, force robot to look at the player
+            Spatial robot = thSceneManager.getRobot();
+            if (robot != null) {
+                robot.lookAt(cam.getLocation(), Vector3f.UNIT_Y);
+            }
+            // Also call update to keep the bubble floating correctly
+            thSceneManager.update(tpf, cam);
+            return;
+        }
 
-        // ✅ Ne pas animer le robot si le chat panel est ouvert
-        if (!thSceneManager.isChatPanelVisible()) {
-            if (camPos.distance(lastCamPos) > 0.05f) {
-                if (!isMoving) {
-                    thSceneManager.playAnimation("Walk");
-                    isMoving = true;
+        boolean blockedForward = false;
+
+        if (moveForward) {
+            Vector3f rayDir = cam.getDirection().clone();
+            rayDir.y = 0;
+            rayDir.normalizeLocal();
+
+            Ray ray = new Ray(cam.getLocation(), rayDir);
+            // Increase limit slightly to ensure we catch walls
+            ray.setLimit(minDistance + 2f);
+
+            CollisionResults results = new CollisionResults();
+            thSceneManager.getMuseumNode().collideWith(ray, results);
+
+            if (results.size() > 0) {
+                CollisionResult closest = results.getClosestCollision();
+
+                // --- DEBUG PRINT ---
+                System.out.println("⚠️ HIT: " + closest.getGeometry().getName());
+                System.out.println("   Distance: " + closest.getDistance());
+                // -------------------
+
+                if (closest.getDistance() < minDistance) {
+                    blockedForward = true;
+                    System.out.println("⛔ BLOCKED! Too close to wall.");
                 }
             } else {
-                if (isMoving) {
-                    thSceneManager.playAnimation("Idle");
-                    isMoving = false;
-                }
+                System.out.println("✅ Path Clear");
             }
         }
 
-        lastCamPos.set(camPos.clone());
+        // ==========================================
+        // 🚶 MANUAL MOVEMENT LOGIC
+        // ==========================================
+        Vector3f camDir = cam.getDirection().clone().multLocal(walkSpeed * tpf);
+        Vector3f camLeft = cam.getLeft().clone().multLocal(walkSpeed * tpf);
 
-        // Limites de hauteur
-        if (camPos.y < 2f) cam.setLocation(new Vector3f(camPos.x, 2f, camPos.z));
-        if (camPos.y > 8f) cam.setLocation(new Vector3f(camPos.x, 8f, camPos.z));
+        // Flatten to X/Z plane (FPS style walking)
+        camDir.y = 0;
+        camLeft.y = 0;
 
-        // ✅ Robot DEVANT la caméra
-        Vector3f camDirection = cam.getDirection().normalize();
-        Vector3f robotPos = thSceneManager.getRobot().getLocalTranslation();
+        Vector3f walkDirection = new Vector3f(0, 0, 0);
 
-        float distanceInFront = 3.5f;
+        // 3. Normalize! (CRITICAL FIX: This ensures consistent speed even if looking up/down)
+        camDir.normalizeLocal().multLocal(walkSpeed * tpf);
+        camLeft.normalizeLocal().multLocal(walkSpeed * tpf);
 
-        Vector3f offset = new Vector3f(
-                camDirection.x * distanceInFront,
-                0,
-                camDirection.z * distanceInFront
-        );
+        // 4. Apply movement
+        // "W" key
+        if (moveForward && !blockedForward) {
+            walkDirection.addLocal(camDir);
+        }
+        // "S" key (Always allowed)
+        if (moveBackward) {
+            walkDirection.addLocal(camDir.negate());
+        }
+        // "A" key
+        if (moveLeft) {
+            walkDirection.addLocal(camLeft);
+        }
+        // "D" key
+        if (moveRight) {
+            walkDirection.addLocal(camLeft.negate());
+        }
 
-        Vector3f newPos = new Vector3f(
-                camPos.x + offset.x,
-                robotPos.y,
-                camPos.z + offset.z
-        );
+        // 5. Final Application
+        cam.setLocation(cam.getLocation().add(walkDirection));
 
-        thSceneManager.getRobot().setLocalTranslation(newPos);
-        thSceneManager.getRobot().lookAt(camPos, Vector3f.UNIT_Y);
 
-        // ✅ Mettre à jour la scène (bulle, timer, etc.)
+        // ==========================================
+        // 🤖 FLOATING ROBOT LOGIC
+        // ==========================================
+        Spatial robot = thSceneManager.getRobot();
+
+        if (robot != null) {
+            Vector3f camPos = cam.getLocation();
+            Vector3f camDirection = cam.getDirection();
+            Vector3f camLeftSide = cam.getLeft();
+
+            // Position: Forward and to the Right of camera
+            Vector3f forwardOffset = camDirection.mult(2.0f);
+            Vector3f rightOffset = camLeftSide.mult(-1.2f); // Negative Left = Right
+
+            Vector3f newRobotPos = camPos.add(forwardOffset).add(rightOffset);
+            newRobotPos.y = camPos.y - 0.5f;
+
+            robot.setLocalTranslation(newRobotPos);
+
+            // ✅ NEW: Logic for rotation when chat is NOT open (Default)
+            // Look parallel to the camera (forward) - appears as looking "left" relative to the robot's body
+            Vector3f lookTarget = camPos.add(forwardOffset).add(camDirection.mult(10f));
+            lookTarget.y = newRobotPos.y;
+
+            robot.lookAt(lookTarget, Vector3f.UNIT_Y);
+        }
+
         thSceneManager.update(tpf, cam);
 
-        // ✅ Mettre à jour la couleur du réticule
-        if (crosshair != null && !thSceneManager.isChatPanelVisible()) {
+        if (crosshair != null) {
             boolean lookingAt = thSceneManager.isLookingAtPainting();
-            crosshair.setColor(lookingAt ? new ColorRGBA(1f, 0.84f, 0f, 1f) : ColorRGBA.White); // Gold when looking
+            crosshair.setColor(lookingAt ? ColorRGBA.Green : ColorRGBA.White);
         }
     }
 

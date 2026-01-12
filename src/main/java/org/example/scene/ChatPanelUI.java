@@ -2,15 +2,19 @@ package org.example.scene;
 
 import com.jme3.app.SimpleApplication;
 import com.jme3.math.Vector3f;
+import com.jme3.math.ColorRGBA;
 import com.simsilica.lemur.*;
 import com.simsilica.lemur.component.BorderLayout;
 import com.simsilica.lemur.component.QuadBackgroundComponent;
 import com.simsilica.lemur.component.SpringGridLayout;
+import com.simsilica.lemur.component.TextEntryComponent;
 import com.simsilica.lemur.event.CursorEventControl;
 import com.simsilica.lemur.event.DragHandler;
+import com.simsilica.lemur.event.KeyAction;
+import com.simsilica.lemur.event.KeyActionListener;
+import org.example.TTS.TTSService;
 import org.example.ai.ChatBot;
-import java.util.ArrayList;
-import java.util.List;
+import org.example.config.ConfigLoader;
 
 public class ChatPanelUI {
 
@@ -20,10 +24,12 @@ public class ChatPanelUI {
     private Container mainContainer;
     private TextField chatInput;
     private TextField apiKeyInput;
-    private Container chatHistoryContainer;
-    private List<String> messageHistory;
-    private int maxVisibleMessages = 8; // Nombre de messages visibles
-    private int scrollOffset = 0; // Pour gérer le scroll
+
+    // UI Elements for the "Audio HUD" style
+    private Label statusLabel;
+    private Label lastQueryLabel;
+    private Label contextLabel;
+    private Container statusContainer;
 
     private ChatBot chatBot;
     private String currentPaintingContext;
@@ -31,182 +37,159 @@ public class ChatPanelUI {
     public ChatPanelUI(SimpleApplication app, Object sceneManager) {
         this.app = app;
         this.sceneManager = sceneManager;
-        this.messageHistory = new ArrayList<>();
         initialize();
     }
 
     private void initialize() {
-        // Container principal avec BorderLayout
+        // Main Container - Compact HUD style
         mainContainer = new Container(new BorderLayout());
-        mainContainer.setPreferredSize(new Vector3f(550, 500, 0));
+        mainContainer.setPreferredSize(new Vector3f(500, 320, 0)); // Increased height slightly for spacing
 
-        // Fond moderne avec gradient subtil
+        // Modern, slightly transparent dark background
         mainContainer.setBackground(new QuadBackgroundComponent(
-                new com.jme3.math.ColorRGBA(0.10f, 0.12f, 0.16f, 0.98f)
+                new ColorRGBA(0.05f, 0.05f, 0.05f, 0.9f)
         ));
 
         // ============ HEADER ============
         Container header = new Container(new SpringGridLayout());
         header.setBackground(new QuadBackgroundComponent(
-                new com.jme3.math.ColorRGBA(0.15f, 0.20f, 0.28f, 1f)
+                new ColorRGBA(0.1f, 0.12f, 0.15f, 0.9f)
         ));
-        header.setInsets(new com.simsilica.lemur.Insets3f(18, 20, 18, 20));
+        header.setInsets(new Insets3f(10, 15, 10, 15));
 
-        // Titre moderne
-        Label titleLabel = header.addChild(new Label("🎨 Museum AI Assistant"));
-        titleLabel.setFontSize(24);
-        titleLabel.setColor(new com.jme3.math.ColorRGBA(1f, 1f, 1f, 1f));
-
-        // Sous-titre avec instructions
-        Label subtitleLabel = header.addChild(new Label("Press ESC to close • Scroll with Mouse Wheel"));
-        subtitleLabel.setFontSize(12);
-        subtitleLabel.setColor(new com.jme3.math.ColorRGBA(0.65f, 0.75f, 0.85f, 1f));
-
+        Label titleLabel = header.addChild(new Label("🎧 AI Audio Guide"));
+        titleLabel.setFontSize(20);
+        titleLabel.setColor(ColorRGBA.White);
         mainContainer.addChild(header, BorderLayout.Position.North);
 
-        // ============ CHAT HISTORY ============
-        Container centerWrapper = new Container();
-        centerWrapper.setBackground(new QuadBackgroundComponent(
-                new com.jme3.math.ColorRGBA(0.08f, 0.10f, 0.14f, 1f)
-        ));
-        centerWrapper.setInsets(new com.simsilica.lemur.Insets3f(15, 15, 15, 15));
+        // ============ STATUS CENTER ============
+        statusContainer = new Container(new SpringGridLayout(Axis.Y, Axis.X, FillMode.None, FillMode.Even));
+        statusContainer.setInsets(new Insets3f(20, 20, 20, 20));
+        statusContainer.setBackground(new QuadBackgroundComponent(new ColorRGBA(0,0,0,0)));
 
-        // Container pour les messages (layout vertical)
-        chatHistoryContainer = new Container(new SpringGridLayout(com.simsilica.lemur.Axis.Y, com.simsilica.lemur.Axis.X));
-        chatHistoryContainer.setInsets(new com.simsilica.lemur.Insets3f(10, 10, 10, 10));
-        chatHistoryContainer.setPreferredSize(new Vector3f(500, 300, 0));
+        // --- NEW SECTION: CONTEXT PIN ---
+        Label contextTitle = statusContainer.addChild(new Label("Current Focus:"));
+        contextTitle.setFontSize(12);
+        contextTitle.setColor(new ColorRGBA(0.6f, 0.6f, 0.6f, 1f));
+        // ✅ ADDED: Small margin between "Current Focus" and the actual name
+        contextTitle.setInsets(new Insets3f(0, 0, 3, 0));
 
-        centerWrapper.addChild(chatHistoryContainer);
-        mainContainer.addChild(centerWrapper, BorderLayout.Position.Center);
+        contextLabel = statusContainer.addChild(new Label("Unknown"));
+        contextLabel.setFontSize(16);
+        contextLabel.setColor(new ColorRGBA(1f, 0.8f, 0.0f, 1f)); // Gold/Orange color
+        // ✅ UPDATED: Increased bottom margin (20f) to separate from "Last Inquiry"
+        contextLabel.setInsets(new Insets3f(0, 0, 20, 0));
+        // --------------------------------
+
+        // 1. Label to show what the user just asked (Confirmation)
+        Label youAskedTitle = statusContainer.addChild(new Label("Last Inquiry:"));
+        youAskedTitle.setFontSize(12);
+        youAskedTitle.setColor(new ColorRGBA(0.6f, 0.6f, 0.6f, 1f));
+        youAskedTitle.setInsets(new Insets3f(0, 0, 3, 0));
+
+        lastQueryLabel = statusContainer.addChild(new Label("..."));
+        lastQueryLabel.setFontSize(14);
+        lastQueryLabel.setColor(new ColorRGBA(0.8f, 0.9f, 1f, 1f));
+        lastQueryLabel.setInsets(new Insets3f(0, 0, 15, 0)); // Spacing before status
+
+        // 2. Big Status Indicator (Thinking / Speaking)
+        statusLabel = statusContainer.addChild(new Label("Ready"));
+        statusLabel.setFontSize(24);
+        statusLabel.setTextHAlignment(HAlignment.Center);
+        statusLabel.setColor(new ColorRGBA(0.5f, 1f, 0.5f, 1f)); // Start Green
+
+        mainContainer.addChild(statusContainer, BorderLayout.Position.Center);
 
         // ============ INPUT AREA ============
         Container bottom = new Container(new SpringGridLayout());
-        bottom.setBackground(new QuadBackgroundComponent(
-                new com.jme3.math.ColorRGBA(0.12f, 0.16f, 0.22f, 1f)
-        ));
-        bottom.setInsets(new com.simsilica.lemur.Insets3f(15, 20, 15, 20));
+        bottom.setInsets(new Insets3f(10, 15, 15, 15));
 
-        // Champ API Key (caché par défaut si clé existe)
+        // API Key Input (Hidden by default)
         apiKeyInput = bottom.addChild(new TextField("probleme d'API..."));
-        apiKeyInput.setPreferredSize(new Vector3f(490, 32, 0));
-        apiKeyInput.setFontSize(13);
-        apiKeyInput.setBackground(new QuadBackgroundComponent(
-                new com.jme3.math.ColorRGBA(0.18f, 0.22f, 0.30f, 1f)
-        ));
-        apiKeyInput.setColor(new com.jme3.math.ColorRGBA(0.9f, 0.9f, 0.9f, 1f));
+        apiKeyInput.setPreferredSize(new Vector3f(470, 30, 0));
+        apiKeyInput.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.1f, 0.1f, 1f)));
 
-        // Container pour input + bouton (horizontal)
-        Container inputRow = bottom.addChild(new Container(new SpringGridLayout(com.simsilica.lemur.Axis.X, com.simsilica.lemur.Axis.Y)));
+        Container inputRow = bottom.addChild(new Container(new SpringGridLayout(Axis.X, Axis.Y)));
 
-        // Champ de saisie message
-        chatInput = inputRow.addChild(new TextField("Type your message here..."));
-        chatInput.setPreferredSize(new Vector3f(390, 38, 0));
+        chatInput = inputRow.addChild(new TextField("Ask a question..."));
+        chatInput.setPreferredSize(new Vector3f(370, 35, 0));
         chatInput.setFontSize(14);
-        chatInput.setBackground(new QuadBackgroundComponent(
-                new com.jme3.math.ColorRGBA(0.18f, 0.22f, 0.30f, 1f)
-        ));
-        chatInput.setColor(new com.jme3.math.ColorRGBA(1f, 1f, 1f, 1f));
+        chatInput.setColor(ColorRGBA.White);
 
-        // Bouton Send moderne
-        Button sendBtn = inputRow.addChild(new Button("Send ➤"));
-        sendBtn.setPreferredSize(new Vector3f(90, 38, 0));
-        sendBtn.setFontSize(15);
-        sendBtn.setColor(new com.jme3.math.ColorRGBA(1f, 1f, 1f, 1f));
-        sendBtn.setBackground(new QuadBackgroundComponent(
-                new com.jme3.math.ColorRGBA(0.25f, 0.55f, 0.85f, 1f)
-        ));
+        Button sendBtn = inputRow.addChild(new Button("Speak ➤"));
+        sendBtn.setPreferredSize(new Vector3f(80, 35, 0));
+        sendBtn.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.4f, 0.8f, 1f)));
         sendBtn.addClickCommands(btn -> onSend());
 
         mainContainer.addChild(bottom, BorderLayout.Position.South);
 
-        // Activer le drag & drop
+        // Enable Dragging
         CursorEventControl.addListenersToSpatial(mainContainer, new DragHandler());
+
+        KeyActionListener sendListener = new KeyActionListener() {
+            @Override
+            public void keyAction(TextEntryComponent source, KeyAction key) {
+                onSend();
+            }
+        };
+
+        chatInput.getActionMap().put(new KeyAction(com.jme3.input.KeyInput.KEY_RETURN), sendListener);
+        chatInput.getActionMap().put(new KeyAction(com.jme3.input.KeyInput.KEY_NUMPADENTER), sendListener);
     }
 
     public void show(String paintingContext) {
         this.currentPaintingContext = paintingContext;
 
-        // Initialiser ChatBot avec la clé API
+        if (contextLabel != null) {
+            String displayText = (paintingContext != null && !paintingContext.isEmpty())
+                    ? paintingContext
+                    : "General Museum Guide";
+            contextLabel.setText(displayText);
+        }
+
+        // Initialize ChatBot
         if (chatBot == null) {
-            String key = "AIzaSyARTw8z3v-AZVZint632WfeNrefFMh5rTo";
+            String key = ConfigLoader.get("gemini.api.key");
             if (key != null && !key.isEmpty()) {
                 try {
                     chatBot = new ChatBot(key);
-                    System.out.println("✅ Gemini API Key loaded");
-
-                    // Cacher le champ API key
-                    if (apiKeyInput.getParent() != null) {
-                        apiKeyInput.removeFromParent();
-                    }
+                    if (apiKeyInput.getParent() != null) apiKeyInput.removeFromParent();
                 } catch (Exception e) {
-                    System.err.println("❌ Error initializing ChatBot: " + e.getMessage());
-                    e.printStackTrace();
+                    System.err.println("❌ Error initializing ChatBot");
                 }
             }
         }
 
-        // Attacher le panel à l'interface
         if (!app.getGuiNode().hasChild(mainContainer)) {
             app.getGuiNode().attachChild(mainContainer);
         }
 
-        // Positionner en haut à droite
+        // Center-Right positioning
         float x = app.getCamera().getWidth() - mainContainer.getPreferredSize().x - 20;
-        float y = app.getCamera().getHeight() - 20;
+//        float y = app.getCamera().getHeight() / 1.5f;
+        float y = app.getCamera().getHeight() * 0.98f;
         mainContainer.setLocalTranslation(x, y, 0);
 
-        // Effacer l'historique et afficher le message de bienvenue
-        messageHistory.clear();
-        scrollOffset = 0;
+        // Reset UI State
+        setStatus("Ready", ColorRGBA.Green);
+        lastQueryLabel.setText("-");
 
-        addMessage("SYSTEM", "🎨 " + paintingContext);
+        // Disable Camera / Enable Cursor
+        setCameraEnabled(false);
 
-        if (chatBot != null) {
-            addMessage("SYSTEM", "✅ Connected to Gemini AI. Ask me anything!");
-        } else {
-            addMessage("SYSTEM", "⚠️ Please enter your Gemini API key below");
-        }
-
-        refreshChatDisplay();
-
-        // Configuration de l'interface
-        if(this.sceneManager instanceof SceneManager){
-            app.getInputManager().setCursorVisible(false);
-            ((org.example.scene.JmeApp) app).getFlyByCamera().setEnabled(false);
-        }else if(this.sceneManager instanceof MetSceneManager){
-            app.getInputManager().setCursorVisible(false);
-            ((org.example.scene.JmeMetApp) app).getFlyByCamera().setEnabled(false);
-        }
-
-
-        // Focus automatique sur le champ de texte
+        // Focus Input
         app.enqueue(() -> {
-            try {
-                com.simsilica.lemur.GuiGlobals.getInstance().requestFocus(chatInput);
-                chatInput.setText("");
-            } catch (Exception e) {
-                System.err.println("⚠️ Cannot focus input: " + e.getMessage());
-            }
+            com.simsilica.lemur.GuiGlobals.getInstance().requestFocus(chatInput);
+            chatInput.setText("");
             return null;
         });
-
-        System.out.println("💬 Chat panel opened");
     }
 
     public void close() {
         if (app.getGuiNode().hasChild(mainContainer)) {
             app.getGuiNode().detachChild(mainContainer);
         }
-
-        if(this.sceneManager instanceof SceneManager){
-            app.getInputManager().setCursorVisible(false);
-            ((org.example.scene.JmeApp) app).getFlyByCamera().setEnabled(true);
-        }else if(this.sceneManager instanceof MetSceneManager){
-            app.getInputManager().setCursorVisible(false);
-            ((org.example.scene.JmeMetApp) app).getFlyByCamera().setEnabled(true);
-        }
-
-        System.out.println("❎ Chat panel closed");
+        setCameraEnabled(true);
     }
 
     public boolean isVisible() {
@@ -215,159 +198,79 @@ public class ChatPanelUI {
 
     private void onSend() {
         String message = chatInput.getText().trim();
-        if (message.isEmpty() || message.equals("Type your message here...")) return;
+        if (message.isEmpty() || message.equals("Ask a question...")) return;
 
-        // Vérifier que ChatBot est initialisé
+        // API Key Check
         if (chatBot == null) {
             String key = apiKeyInput.getText().trim();
-            if (key.isEmpty() || key.equals("probleme d'API...")) {
-                addMessage("SYSTEM", "veuillez resoudre le probleme");
-//                refreshChatDisplay();
+            if (key.isEmpty() || key.startsWith("prob")) {
+                setStatus("⚠️ Need API Key", ColorRGBA.Red);
                 return;
             }
-
             try {
                 chatBot = new ChatBot(key);
                 apiKeyInput.removeFromParent();
-                addMessage("SYSTEM", "✅ API Key accepted!");
-                refreshChatDisplay();
             } catch (Exception e) {
-                addMessage("SYSTEM", "❌ Invalid API key: " + e.getMessage());
-                refreshChatDisplay();
+                setStatus("❌ Invalid Key", ColorRGBA.Red);
                 return;
             }
         }
 
-        // Afficher le message de l'utilisateur
-        addMessage("USER", message);
+        // Update HUD
+        lastQueryLabel.setText("\"" + message + "\""); // Show user what they asked
         chatInput.setText("");
+        setStatus("⏳ Thinking...", ColorRGBA.Yellow);
 
-        // Afficher un indicateur de chargement
-        addMessage("LOADING", "⏳ AI is thinking...");
-        refreshChatDisplay();
-
-        // Envoyer le message à l'API dans un thread séparé
+        // AI Thread
         new Thread(() -> {
             try {
                 String reply;
-                if(sceneManager instanceof SceneManager){
-                    reply = chatBot.sendMessage(message, currentPaintingContext, "musée du louvre");
-                }else if(sceneManager instanceof MetSceneManager){
-                    reply = chatBot.sendMessage(message, currentPaintingContext, "Metropolitan Museum of Art de New York");
-                }else{
-                    reply = null;
-                }
+                String museumName = "Museum"; // Default
+
+                if(sceneManager instanceof SceneManager) museumName = "musée du louvre";
+                else if(sceneManager instanceof MetSceneManager) museumName = "Metropolitan Museum of Art";
+                else if(sceneManager instanceof ThSceneManager) museumName = "Musée d'Orsay";
+
+                // 1. Get Text Response (Invisible to user)
+                reply = chatBot.sendMessage(message, currentPaintingContext, museumName);
 
                 app.enqueue(() -> {
-                    // Supprimer le message de chargement
-                    if (!messageHistory.isEmpty() && messageHistory.get(messageHistory.size() - 1).startsWith("LOADING:")) {
-                        messageHistory.remove(messageHistory.size() - 1);
-                    }
+                    // 2. Play Audio
+                    TTSService.say(reply);
 
-                    // Afficher la réponse de l'AI
-                    addMessage("AI", reply);
-                    refreshChatDisplay();
+                    // 3. Update Visual Status (No text log)
+                    setStatus("🔊 Speaking...", new ColorRGBA(0.4f, 0.8f, 1f, 1f));
 
-                    // Afficher la réponse avec le robot
-                    if(sceneManager instanceof SceneManager){
-                        ((SceneManager) sceneManager).showRobotSpeech(reply);
-                    }else if(sceneManager instanceof MetSceneManager){
-                        ((MetSceneManager) sceneManager).showRobotSpeech(reply);
+                    // 4. Update Robot Bubble (if needed by the specific scene manager)
+                    if(sceneManager instanceof SceneManager) ((SceneManager) sceneManager).showRobotSpeech(reply);
+                    else if(sceneManager instanceof MetSceneManager) ((MetSceneManager) sceneManager).showRobotSpeech(reply);
+                    else if(sceneManager instanceof ThSceneManager) ((ThSceneManager) sceneManager).showRobotSpeech(reply);
 
-                    }
                 });
 
             } catch (Exception e) {
                 e.printStackTrace();
-                app.enqueue(() -> {
-                    // Supprimer le message de chargement
-                    if (!messageHistory.isEmpty() && messageHistory.get(messageHistory.size() - 1).startsWith("LOADING:")) {
-                        messageHistory.remove(messageHistory.size() - 1);
-                    }
-                    addMessage("SYSTEM", "❌ API Error: " + e.getMessage());
-                    refreshChatDisplay();
-                });
+                app.enqueue(() -> setStatus("❌ Connection Error", ColorRGBA.Red));
             }
         }).start();
     }
 
-    // Ajouter un message à l'historique
-    private void addMessage(String type, String text) {
-        messageHistory.add(type + ":" + text);
-
-        // Auto-scroll vers le bas (afficher les derniers messages)
-        if (messageHistory.size() > maxVisibleMessages) {
-            scrollOffset = messageHistory.size() - maxVisibleMessages;
-        }
+    // Helper to update the big status label
+    private void setStatus(String text, ColorRGBA color) {
+        statusLabel.setText(text);
+        statusLabel.setColor(color);
     }
 
-    // Rafraîchir l'affichage du chat
-    private void refreshChatDisplay() {
-        app.enqueue(() -> {
-            chatHistoryContainer.clearChildren();
+    // Helper to handle the specific camera casting logic
+    private void setCameraEnabled(boolean enabled) {
+        app.getInputManager().setCursorVisible(!enabled);
 
-            // Calculer quels messages afficher
-            int start = Math.max(0, scrollOffset);
-            int end = Math.min(messageHistory.size(), start + maxVisibleMessages);
-
-            for (int i = start; i < end; i++) {
-                String msg = messageHistory.get(i);
-                String[] parts = msg.split(":", 2);
-                if (parts.length == 2) {
-                    String type = parts[0];
-                    String text = parts[1];
-
-                    Container msgContainer = new Container(new SpringGridLayout());
-                    msgContainer.setInsets(new com.simsilica.lemur.Insets3f(10, 12, 10, 12));
-
-                    Label label = new Label(text);
-                    label.setFontSize(13);
-                    label.setTextHAlignment(com.simsilica.lemur.HAlignment.Left);
-
-                    switch (type) {
-                        case "USER":
-                            msgContainer.setBackground(new QuadBackgroundComponent(
-                                    new com.jme3.math.ColorRGBA(0.25f, 0.35f, 0.55f, 0.9f)
-                            ));
-                            label.setText("You: " + text);
-                            label.setColor(new com.jme3.math.ColorRGBA(1f, 1f, 1f, 1f));
-                            break;
-                        case "AI":
-                            msgContainer.setBackground(new QuadBackgroundComponent(
-                                    new com.jme3.math.ColorRGBA(0.20f, 0.45f, 0.35f, 0.9f)
-                            ));
-                            label.setText("🤖 AI: " + text);
-                            label.setColor(new com.jme3.math.ColorRGBA(1f, 1f, 1f, 1f));
-                            break;
-                        case "LOADING":
-                            msgContainer.setBackground(new QuadBackgroundComponent(
-                                    new com.jme3.math.ColorRGBA(0.30f, 0.30f, 0.35f, 0.8f)
-                            ));
-                            label.setColor(new com.jme3.math.ColorRGBA(0.9f, 0.9f, 0.5f, 1f));
-                            break;
-                        default: // SYSTEM
-                            msgContainer.setBackground(new QuadBackgroundComponent(
-                                    new com.jme3.math.ColorRGBA(0.15f, 0.15f, 0.20f, 0.8f)
-                            ));
-                            label.setColor(new com.jme3.math.ColorRGBA(0.8f, 0.85f, 0.9f, 1f));
-                            label.setTextHAlignment(com.simsilica.lemur.HAlignment.Center);
-                            break;
-                    }
-
-                    msgContainer.addChild(label);
-                    chatHistoryContainer.addChild(msgContainer);
-                }
-            }
-
-            // Afficher un indicateur si on n'est pas au bas
-            if (scrollOffset + maxVisibleMessages < messageHistory.size()) {
-                Label moreLabel = new Label("▼ More messages below ▼");
-                moreLabel.setFontSize(11);
-                moreLabel.setColor(new com.jme3.math.ColorRGBA(0.6f, 0.6f, 0.7f, 1f));
-                chatHistoryContainer.addChild(moreLabel);
-            }
-
-            return null;
-        });
+        if (sceneManager instanceof SceneManager) {
+            ((JmeApp) app).getFlyByCamera().setEnabled(enabled);
+        } else if (sceneManager instanceof MetSceneManager) {
+            ((JmeMetApp) app).getFlyByCamera().setEnabled(enabled);
+        } else if (sceneManager instanceof ThSceneManager) {
+            ((JmeThApp) app).getFlyByCamera().setEnabled(enabled);
+        }
     }
 }

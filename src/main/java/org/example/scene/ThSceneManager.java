@@ -4,10 +4,12 @@ import com.jme3.anim.AnimComposer;
 import com.jme3.app.SimpleApplication;
 import com.jme3.asset.AssetManager;
 import com.jme3.bounding.BoundingBox;
+import com.jme3.collision.Collidable;
 import com.jme3.collision.CollisionResult;
 import com.jme3.collision.CollisionResults;
 import com.jme3.font.BitmapFont;
 import com.jme3.font.BitmapText;
+import com.jme3.font.Rectangle;
 import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
 import com.jme3.light.PointLight;
@@ -48,9 +50,10 @@ public class ThSceneManager {
     private BitmapText bubbleText;
     private Geometry bubbleBackground;
     private float bubbleDisplayTime = 0f;
-    private static final float BUBBLE_DURATION = 3f; // Réduit à 3 secondes
+    //    private static final float BUBBLE_DURATION = 3f; // Réduit à 3 secondes
     private boolean sceneReady = false;
     private ChatPanelUI chatPanelUI;
+    private Vector3f currentBubbleTargetPos = new Vector3f();
 
     // Robot movement variables
     private boolean robotWalking = false;
@@ -88,7 +91,7 @@ public class ThSceneManager {
         this.assetLoader = new AssetLoader();
         app.getStateManager().attach(this.assetLoader);
         this.db = new DBManager();
-        
+
         System.out.println("🏛️ Initializing Musée d'Orsay Style Hall...");
     }
 
@@ -109,12 +112,11 @@ public class ThSceneManager {
     public void setAssetsToLoad() {
         this.assetLoader
                 .addMaterial("Common/MatDefs/Light/Lighting.j3md", "defMat")
+                .addMaterial("Common/MatDefs/Misc/Unshaded.j3md", "unshMat")
                 .addTexture("Textures/marble_floor.png", "marble_floor")
                 .addTexture("Textures/wood_floor.jpg", "wood_floor")
                 .addTexture("Textures/gold_texture.jpg", "gold_texture")
-                .addModel("Models/robot.glb", "robot")
-                .addTexture("Textures/texture.png", "robotTexture")
-                
+                .addModel("Models/Robot/scene.gltf", "robot")
                 // 🗿 Chargement des 6 statues avec noms CORRECTS
                 .addModel("Models/colossal_bust_ramesses_ii.glb", "ramesses")
                 .addModel("Models/head_of_king_menkaure.glb", "athena")
@@ -136,12 +138,12 @@ public class ThSceneManager {
             initializeScene();
             initializeClickDetection();
             ((JmeThApp) app).showCrosshair();
-           app.getInputManager().setCursorVisible(false);
+            app.getInputManager().setCursorVisible(false);
             sceneReady = true;
 
             System.out.println("🚀 Initializing ChatPanelUI...");
             try {
-                this.chatPanelUI = new ChatPanelUI(app, this);
+                this.chatPanelUI = new ChatPanelUI(app, (ThSceneManager)this);
                 System.out.println("✅ ChatPanelUI initialized successfully");
             } catch (Exception e) {
                 System.err.println("❌ FATAL ERROR: Failed to initialize ChatPanelUI!");
@@ -156,7 +158,7 @@ public class ThSceneManager {
      */
     private void createElegantFloor() {
         System.out.println("🔨 Construction du sol en marbre élégant...");
-        
+
         // Sol principal - grand damier sophistiqué
         float tileSize = 4f;
         int tilesX = (int) (HALL_WIDTH / tileSize);
@@ -166,9 +168,9 @@ public class ThSceneManager {
             for (int z = 0; z < tilesZ; z++) {
                 Box tile = new Box(tileSize / 2 - 0.02f, 0.15f, tileSize / 2 - 0.02f);
                 Geometry tileGeom = new Geometry("FloorTile_" + x + "_" + z, tile);
-                
+
                 Material tileMat = assetLoader.getMaterial("defMat").clone();
-                
+
                 // Motif élaboré: losanges alternés
                 int pattern = (x + z) % 3;
                 switch (pattern) {
@@ -182,26 +184,26 @@ public class ThSceneManager {
                         tileMat.setColor("Diffuse", COLOR_WARM_BEIGE);
                         break;
                 }
-                
+
                 tileMat.setColor("Ambient", COLOR_MARBLE_CREAM.mult(0.6f));
                 tileMat.setBoolean("UseMaterialColors", true);
                 tileMat.setFloat("Shininess", 64f);
                 tileMat.setColor("Specular", ColorRGBA.White.mult(0.5f));
-                
+
                 tileGeom.setMaterial(tileMat);
                 tileGeom.setLocalTranslation(
-                    (x - tilesX / 2f) * tileSize + tileSize / 2,
-                    -0.15f,
-                    (z - tilesZ / 2f) * tileSize + tileSize / 2
+                        (x - tilesX / 2f) * tileSize + tileSize / 2,
+                        -0.15f,
+                        (z - tilesZ / 2f) * tileSize + tileSize / 2
                 );
-                
+
                 museumNode.attachChild(tileGeom);
             }
         }
-        
+
         // Bordure décorative centrale
         createCentralFloorDecoration();
-        
+
         System.out.println("✅ Sol en marbre sophistiqué créé: " + (tilesX * tilesZ) + " dalles");
     }
 
@@ -220,7 +222,7 @@ public class ThSceneManager {
         pathGeom.setMaterial(pathMat);
         pathGeom.setLocalTranslation(0, 0.05f, 0);
         museumNode.attachChild(pathGeom);
-        
+
         // Bordures dorées
         for (float xOffset : new float[]{-6.2f, 6.2f}) {
             Box border = new Box(0.15f, 0.1f, HALL_LENGTH / 2 - 5f);
@@ -240,7 +242,7 @@ public class ThSceneManager {
      */
     private void createGrandHallWalls() {
         System.out.println("🔨 Construction des murs style Haussmann...");
-        
+
         Material wallMat = assetLoader.getMaterial("defMat").clone();
         wallMat.setColor("Diffuse", COLOR_CREAM_STONE);
         wallMat.setColor("Ambient", COLOR_CREAM_STONE.mult(0.7f));
@@ -257,7 +259,7 @@ public class ThSceneManager {
         // Murs latéraux avec galeries
         createSideWallWithGallery(-HALL_WIDTH / 2, wallMat.clone());
         createSideWallWithGallery(HALL_WIDTH / 2, wallMat.clone());
-        
+
         System.out.println("✅ Murs Haussmanniens érigés");
     }
 
@@ -266,20 +268,20 @@ public class ThSceneManager {
      */
     private void createSideWallWithGallery(float xPos, Material baseMat) {
         float sign = Math.signum(xPos);
-        
+
         // Mur principal
         Box wall = new Box(WALL_THICKNESS / 2, HALL_HEIGHT / 2, HALL_LENGTH / 2);
         Geometry wallGeom = new Geometry("SideWall", wall);
         wallGeom.setMaterial(baseMat);
         wallGeom.setLocalTranslation(xPos, HALL_HEIGHT / 2, 0);
         museumNode.attachChild(wallGeom);
-        
+
         // Pilastres décoratifs le long du mur
         for (int i = 0; i < 8; i++) {
             float z = -HALL_LENGTH / 2 + 8f + i * 14f;
             createPilaster(xPos - sign * 0.5f, 0, z, sign);
         }
-        
+
         // Corniche supérieure
         Box cornice = new Box(1f, 0.5f, HALL_LENGTH / 2);
         Geometry corniceGeom = new Geometry("Cornice", cornice);
@@ -296,7 +298,7 @@ public class ThSceneManager {
      */
     private void createPilaster(float x, float y, float z, float direction) {
         Node pilasterNode = new Node("Pilaster");
-        
+
         // Base du pilastre
         Box base = new Box(0.8f, 0.4f, 0.6f);
         Geometry baseGeom = new Geometry("PilasterBase", base);
@@ -306,7 +308,7 @@ public class ThSceneManager {
         baseGeom.setMaterial(baseMat);
         baseGeom.setLocalTranslation(0, 0.4f, 0);
         pilasterNode.attachChild(baseGeom);
-        
+
         // Fût du pilastre
         Box shaft = new Box(0.5f, HALL_HEIGHT / 2 - 2f, 0.4f);
         Geometry shaftGeom = new Geometry("PilasterShaft", shaft);
@@ -317,7 +319,7 @@ public class ThSceneManager {
         shaftGeom.setMaterial(shaftMat);
         shaftGeom.setLocalTranslation(0, HALL_HEIGHT / 2, 0);
         pilasterNode.attachChild(shaftGeom);
-        
+
         // Chapiteau doré
         Box capital = new Box(0.7f, 0.6f, 0.5f);
         Geometry capitalGeom = new Geometry("PilasterCapital", capital);
@@ -328,7 +330,7 @@ public class ThSceneManager {
         capitalGeom.setMaterial(capitalMat);
         capitalGeom.setLocalTranslation(0, HALL_HEIGHT - 1.5f, 0);
         pilasterNode.attachChild(capitalGeom);
-        
+
         pilasterNode.setLocalTranslation(x, y, z);
         museumNode.attachChild(pilasterNode);
     }
@@ -338,25 +340,25 @@ public class ThSceneManager {
      */
     private void createArchedGlassCeiling() {
         System.out.println("🔨 Construction de la verrière monumentale...");
-        
+
         // Structure métallique arquée
         int archSegments = 12;
         float archWidth = HALL_WIDTH - 10f;
-        
+
         for (int z = 0; z < 10; z++) {
             float zPos = -HALL_LENGTH / 2 + 10f + z * 12f;
             createArchStructure(zPos, archWidth, archSegments);
         }
-        
+
         // Panneaux de verre
         createGlassPanels();
-        
+
         // Fermettes transversales
         for (int i = 0; i < 9; i++) {
             float zPos = -HALL_LENGTH / 2 + 16f + i * 12f;
             createCrossBeam(zPos);
         }
-        
+
         System.out.println("✅ Verrière monumentale achevée");
     }
 
@@ -369,17 +371,17 @@ public class ThSceneManager {
         metalMat.setColor("Ambient", COLOR_DARK_BRONZE.mult(0.5f));
         metalMat.setBoolean("UseMaterialColors", true);
         metalMat.setFloat("Shininess", 32f);
-        
+
         // Arcs paraboliques
         for (int i = 0; i < segments; i++) {
             float angle = (float) i / segments * FastMath.PI;
             float nextAngle = (float) (i + 1) / segments * FastMath.PI;
-            
+
             float x1 = -width / 2 * FastMath.cos(angle);
             float y1 = HALL_HEIGHT + (ARCH_HEIGHT - HALL_HEIGHT) * FastMath.sin(angle);
             float x2 = -width / 2 * FastMath.cos(nextAngle);
             float y2 = HALL_HEIGHT + (ARCH_HEIGHT - HALL_HEIGHT) * FastMath.sin(nextAngle);
-            
+
             // Poutre de l'arc
             Vector3f start = new Vector3f(x1, y1, zPos);
             Vector3f end = new Vector3f(x2, y2, zPos);
@@ -393,20 +395,20 @@ public class ThSceneManager {
     private void createMetalBeam(Vector3f start, Vector3f end, float radius, Material mat) {
         Vector3f direction = end.subtract(start);
         float length = direction.length();
-        
+
         Cylinder beam = new Cylinder(8, 12, radius, length, true);
         Geometry beamGeom = new Geometry("MetalBeam", beam);
         beamGeom.setMaterial(mat);
-        
+
         // Positionnement et orientation
         Vector3f midpoint = start.add(end).mult(0.5f);
         beamGeom.setLocalTranslation(midpoint);
-        
+
         Quaternion rotation = new Quaternion();
         rotation.lookAt(direction.normalize(), Vector3f.UNIT_Y);
         rotation.multLocal(new Quaternion().fromAngleAxis(FastMath.HALF_PI, Vector3f.UNIT_X));
         beamGeom.setLocalRotation(rotation);
-        
+
         museumNode.attachChild(beamGeom);
     }
 
@@ -420,11 +422,11 @@ public class ThSceneManager {
         glassMat.setBoolean("UseMaterialColors", true);
         glassMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
         glassMat.setFloat("Shininess", 128f);
-        
+
         // Grands panneaux de verre en forme de voûte
         for (int z = 0; z < 9; z++) {
             float zPos = -HALL_LENGTH / 2 + 10f + z * 12f + 6f;
-            
+
             Box glassPanel = new Box(HALL_WIDTH / 2 - 8f, 0.05f, 5.5f);
             Geometry glassGeom = new Geometry("GlassPanel", glassPanel);
             glassGeom.setMaterial(glassMat.clone());
@@ -440,7 +442,7 @@ public class ThSceneManager {
         Material metalMat = assetLoader.getMaterial("defMat").clone();
         metalMat.setColor("Diffuse", COLOR_BLACK_IRON);
         metalMat.setBoolean("UseMaterialColors", true);
-        
+
         Box beam = new Box(HALL_WIDTH / 2 - 5f, 0.15f, 0.15f);
         Geometry beamGeom = new Geometry("CrossBeam", beam);
         beamGeom.setMaterial(metalMat);
@@ -453,14 +455,14 @@ public class ThSceneManager {
      */
     private void createDecorativeBalconies() {
         System.out.println("🔨 Installation des galeries supérieures...");
-        
+
         float balconyHeight = 12f;
         float balconyDepth = 4f;
-        
+
         // Galeries gauche et droite
         for (float xSign : new float[]{-1f, 1f}) {
             float xPos = xSign * (HALL_WIDTH / 2 - balconyDepth / 2 - 2f);
-            
+
             // Sol du balcon
             Box balconyFloor = new Box(balconyDepth / 2, 0.3f, HALL_LENGTH / 2 - 10f);
             Geometry floorGeom = new Geometry("BalconyFloor", balconyFloor);
@@ -470,11 +472,11 @@ public class ThSceneManager {
             floorGeom.setMaterial(floorMat);
             floorGeom.setLocalTranslation(xPos, balconyHeight, 0);
             museumNode.attachChild(floorGeom);
-            
+
             // Balustrade
             createBalustrade(xPos - xSign * (balconyDepth / 2 - 0.3f), balconyHeight + 0.3f);
         }
-        
+
         System.out.println("✅ Galeries installées");
     }
 
@@ -486,18 +488,18 @@ public class ThSceneManager {
         balustradeMat.setColor("Diffuse", COLOR_MARBLE_WHITE);
         balustradeMat.setBoolean("UseMaterialColors", true);
         balustradeMat.setFloat("Shininess", 48f);
-        
+
         // Main courante
         Box rail = new Box(0.1f, 0.1f, HALL_LENGTH / 2 - 10f);
         Geometry railGeom = new Geometry("Handrail", rail);
         railGeom.setMaterial(balustradeMat.clone());
         railGeom.setLocalTranslation(xPos, yPos + 1f, 0);
         museumNode.attachChild(railGeom);
-        
+
         // Balustre (petites colonnes)
         for (int i = 0; i < 20; i++) {
             float zPos = -HALL_LENGTH / 2 + 15f + i * 5f;
-            
+
             Cylinder baluster = new Cylinder(8, 12, 0.05f, 0.9f, true);
             Geometry balusterGeom = new Geometry("Baluster", baluster);
             balusterGeom.setMaterial(balustradeMat.clone());
@@ -513,36 +515,148 @@ public class ThSceneManager {
     private void createSixStatueExhibits() {
         System.out.println("🔨 Installation des 6 sculptures...");
 
-        // ===== STATUE CENTRALE MONUMENTALE - DIRECTEMENT AU SOL =====
-        // 1. ARCHANGE au centre - pièce maîtresse (comme la sculpture des Trois Grâces)
-        createFloorStatue("Angel_Central", 0, 0, -20f, 0, "angel", 3.0f, "😇 Archange Central");
+        // ===== STATUE CENTRALE (Au sol - inchangée) =====
+        createFloorStatue("Angel_Central", 0, 0, -20f, 0, "angel", 3.5f, "😇 Archange Central");
 
-        // ===== STATUES LATÉRALES GAUCHE - SUR CYLINDRES =====
-        // 2. ROI MENKAURE - Tête égyptienne
-        createStatueOnPedestal("Menkaure", -18f, 0, 15f, FastMath.QUARTER_PI, "athena", 2f,
-                           "🇪🇬 Roi Menkaure", 3f, COLOR_GOLD_ACCENT);
+        // ===== STATUES SUR PIÉDESTAUX (Redimensionnement dynamique) =====
+        // Note: Le paramètre 'scale' devient maintenant la LARGEUR DÉSIRÉE (en unités world)
+        // Pour Ramsès, cela reste l'échelle brute (0.18f).
+
+        // 2. ROI MENKAURE
+        createStatueOnPedestal("Menkaure", -18f, 0, 15f, FastMath.QUARTER_PI, "athena", 4.0f,
+                "🇪🇬 Roi Menkaure", 3f, COLOR_GOLD_ACCENT);
 
         // 3. SAINTE ELISABETH
-        createStatueOnPedestal("Elisabeth", -18f, 0, -15f, FastMath.QUARTER_PI, "elisabeth", 1.0f,
-                           "👼 Sainte Elisabeth", 3f, COLOR_MARBLE_CREAM);
+        createStatueOnPedestal("Elisabeth", -18f, 0, -15f, FastMath.QUARTER_PI, "elisabeth", 4.0f,
+                "👼 Sainte Elisabeth", 3f, COLOR_MARBLE_CREAM);
 
-        // ===== STATUES LATÉRALES DROITE - SUR CYLINDRES =====
         // 4. HOMME CLASSIQUE
-        createStatueOnPedestal("Classical_Man", 18f, 0, 15f, -FastMath.QUARTER_PI, "classical_man", 1.1f,
-                           "🏛️ Homme Classique", 3f, COLOR_MARBLE_WHITE);
+        createStatueOnPedestal("Classical_Man", 18f, 0, 15f, -FastMath.QUARTER_PI, "classical_man", 3.0f,
+                "🏛️ Homme Classique", 3f, COLOR_MARBLE_WHITE);
 
         // 5. SAINT NÉPOMUK
-        createStatueOnPedestal("Nepomuk", 18f, 0, -15f, -FastMath.QUARTER_PI, "nepomuk", 1.0f,
-                           "🙏 Saint Népomuk", 3f, COLOR_MARBLE_CREAM);
+        createStatueOnPedestal("Nepomuk", 18f, 0, -15f, -FastMath.QUARTER_PI, "nepomuk", 4.0f,
+                "🙏 Saint Népomuk", 3f, COLOR_MARBLE_CREAM);
 
-        // ===== STATUE DU FOND - SUR CYLINDRE =====
-        // 6. RAMSÈS II - Buste égyptien impressionnant au fond
-        createStatueOnPedestal("Ramesses_II", 0, 0, -45f, 0, "ramesses", 0.18f,
-                           "🇪🇬 Ramsès II", 3f, COLOR_GOLD_ACCENT);
+        // 6. RAMSÈS II (Exception : On garde l'échelle manuelle 0.18f)
+        createStatueOnPedestal("Ramesses_II", 0, 0, -45f, 0, "ramesses", 3.0f,
+                "🇪🇬 Ramsès II", 3f, COLOR_GOLD_ACCENT);
 
-        System.out.println("✅ 6 sculptures installées dans le grand hall!");
+        System.out.println("✅ 6 sculptures installées!");
     }
 
+    /**
+     * 🗿 Crée une statue SUR un piédestal - MODIFIÉ pour redimensionnement automatique
+     */
+    private void createStatueOnPedestal(String name, float x, float y, float z,
+                                        float rotation, String modelKey, float scaleOrWidth,
+                                        String label, float pedestalHeight, ColorRGBA pedestalColor) {
+        Node displayNode = new Node(name + "_Display");
+        float finalScale = scaleOrWidth;
+        float pedestalRadius; // Will be calculated based on statue width
+
+        Spatial statue = null;
+
+        // 1️⃣ ÉTAPE 1 : Charger et analyser la statue D'ABORD
+        try {
+            statue = assetLoader.getModel(modelKey).clone();
+
+            // On réinitialise l'échelle à 1 pour mesurer la taille réelle du modèle brut
+            statue.setLocalScale(1f);
+            statue.rotate(0, rotation, 0);
+            statue.updateModelBound();
+
+            BoundingBox rawBounds = (BoundingBox) statue.getWorldBound();
+            float modelRawWidth = rawBounds.getXExtent() * 2; // Largeur réelle (X)
+
+            // --- LOGIQUE DE REDIMENSIONNEMENT ---
+            float desiredWidth = scaleOrWidth;
+
+            if (modelRawWidth > 0) {
+                finalScale = desiredWidth / modelRawWidth;
+            } else {
+                finalScale = 1f; // Sécurité si bounds=0
+            }
+
+            // Le socle s'adapte à la largeur de la statue
+            pedestalRadius = (desiredWidth / 2) * 1.1f;
+
+            statue.setLocalScale(finalScale);
+
+            System.out.println("  📏 " + name + " -> Width: " + modelRawWidth + " | Final Scale: " + finalScale);
+
+        } catch (Exception e) {
+            System.err.println("❌ Erreur chargement modèle: " + e.getMessage());
+            // Valeurs par défaut si échec
+            pedestalRadius = pedestalHeight / 3;
+        }
+
+        // 2️⃣ ÉTAPE 2 : Créer le Piédestal (maintenant qu'on a le bon rayon)
+
+        // Base noire
+        float baseHeight = 0.3f;
+        float baseRadius = pedestalRadius + 0.3f; // Base un peu plus large que le cylindre
+        Cylinder pedestalBase = new Cylinder(24, 32, baseRadius, baseHeight, true);
+        Geometry baseGeom = new Geometry(name + "_Base", pedestalBase);
+        Material baseMat = assetLoader.getMaterial("defMat").clone();
+        baseMat.setColor("Diffuse", COLOR_BLACK_IRON);
+        baseMat.setBoolean("UseMaterialColors", true);
+        baseMat.setFloat("Shininess", 128f);
+        baseGeom.setMaterial(baseMat);
+        baseGeom.rotate(FastMath.HALF_PI, 0, 0);
+        baseGeom.setLocalTranslation(0, baseHeight / 2, 0);
+        displayNode.attachChild(baseGeom);
+
+        // Socle principal
+        Cylinder pedestal = new Cylinder(24, 32, pedestalRadius, pedestalHeight, true);
+        Geometry pedestalGeom = new Geometry(name + "_Pedestal", pedestal);
+        Material pedestalMat = assetLoader.getMaterial("defMat").clone();
+        pedestalMat.setColor("Diffuse", pedestalColor);
+        pedestalMat.setBoolean("UseMaterialColors", true);
+        pedestalGeom.setMaterial(pedestalMat);
+        pedestalGeom.rotate(FastMath.HALF_PI, 0, 0);
+        pedestalGeom.setLocalTranslation(0, baseHeight + pedestalHeight / 2, 0);
+        displayNode.attachChild(pedestalGeom);
+
+        // Anneau doré
+        Cylinder goldRing = new Cylinder(16, 32, pedestalRadius + 0.05f, 0.1f, true);
+        Geometry ringGeom = new Geometry(name + "_Ring", goldRing);
+        Material ringMat = assetLoader.getMaterial("defMat").clone();
+        ringMat.setColor("Diffuse", COLOR_GOLD_ACCENT);
+        ringMat.setBoolean("UseMaterialColors", true);
+        ringGeom.setMaterial(ringMat);
+        ringGeom.rotate(FastMath.HALF_PI, 0, 0);
+        ringGeom.setLocalTranslation(0, baseHeight + pedestalHeight, 0);
+        displayNode.attachChild(ringGeom);
+
+        // 3️⃣ ÉTAPE 3 : Attacher la statue (si chargée correctement)
+        if (statue != null) {
+            statue.updateModelBound();
+            BoundingBox bounds = (BoundingBox) statue.getWorldBound();
+
+            // Calculer la position pour que les pieds touchent le haut du socle
+            // Note: On utilise bounds.getYExtent() * finalScale si les bounds n'ont pas été refresh après scale
+            float modelBottomY = bounds.getCenter().y - bounds.getYExtent();
+            float pedestalTopY = baseHeight + pedestalHeight;
+            float statueY = pedestalTopY - modelBottomY;
+
+            statue.setLocalTranslation(0, statueY, 0);
+            displayNode.attachChild(statue);
+
+            System.out.println("  ✅ " + label + " placée sur socle large.");
+        }
+
+        // 💡 Lumière
+        SpotLight statueSpot = new SpotLight();
+        statueSpot.setPosition(new Vector3f(x, ARCH_HEIGHT - 5, z));
+        statueSpot.setDirection(new Vector3f(0, -1, 0));
+        statueSpot.setColor(new ColorRGBA(1f, 0.98f, 0.92f, 1f));
+        statueSpot.setSpotOuterAngle(35f * FastMath.DEG_TO_RAD);
+        rootNode.addLight(statueSpot);
+
+        displayNode.setLocalTranslation(x, y, z);
+        museumNode.attachChild(displayNode);
+    }
     /**
      * 🗿 Crée une statue directement au sol (sans piédestal) - pour la pièce centrale
      */
@@ -588,131 +702,39 @@ public class ThSceneManager {
     }
 
     /**
-     * 🗿 Crée une statue SUR un piédestal cylindrique (modèle collé au cylindre)
-     */
-    private void createStatueOnPedestal(String name, float x, float y, float z,
-                                    float rotation, String modelKey, float scale,
-                                    String label, float pedestalHeight, ColorRGBA pedestalColor) {
-        Node displayNode = new Node(name + "_Display");
-
-        // 🏛️ Base noire du piédestal
-        float baseHeight = 0.3f;
-        float baseRadius = pedestalHeight / 2.5f + 0.3f;
-        Cylinder pedestalBase = new Cylinder(24, 32, baseRadius, baseHeight, true);
-        Geometry baseGeom = new Geometry(name + "_Base", pedestalBase);
-        Material baseMat = assetLoader.getMaterial("defMat").clone();
-        baseMat.setColor("Diffuse", COLOR_BLACK_IRON);
-        baseMat.setColor("Ambient", COLOR_BLACK_IRON.mult(0.5f));
-        baseMat.setBoolean("UseMaterialColors", true);
-        baseMat.setFloat("Shininess", 128f);
-        baseGeom.setMaterial(baseMat);
-        baseGeom.rotate(FastMath.HALF_PI, 0, 0);
-        baseGeom.setLocalTranslation(0, baseHeight / 2, 0);
-        displayNode.attachChild(baseGeom);
-
-        // Socle principal cylindrique
-        float pedestalRadius = pedestalHeight / 3;
-        Cylinder pedestal = new Cylinder(24, 32, pedestalRadius, pedestalHeight, true);
-        Geometry pedestalGeom = new Geometry(name + "_Pedestal", pedestal);
-        Material pedestalMat = assetLoader.getMaterial("defMat").clone();
-        pedestalMat.setColor("Diffuse", pedestalColor);
-        pedestalMat.setColor("Ambient", pedestalColor.mult(0.6f));
-        pedestalMat.setBoolean("UseMaterialColors", true);
-        pedestalMat.setFloat("Shininess", 96f);
-        pedestalGeom.setMaterial(pedestalMat);
-        pedestalGeom.rotate(FastMath.HALF_PI, 0, 0);
-        pedestalGeom.setLocalTranslation(0, baseHeight + pedestalHeight / 2, 0);
-        displayNode.attachChild(pedestalGeom);
-
-        // Anneau doré décoratif en haut du socle
-        Cylinder goldRing = new Cylinder(16, 32, pedestalRadius + 0.1f, 0.1f, true);
-        Geometry ringGeom = new Geometry(name + "_Ring", goldRing);
-        Material ringMat = assetLoader.getMaterial("defMat").clone();
-        ringMat.setColor("Diffuse", COLOR_GOLD_ACCENT);
-        ringMat.setBoolean("UseMaterialColors", true);
-        ringMat.setFloat("Shininess", 128f);
-        ringGeom.setMaterial(ringMat);
-        ringGeom.rotate(FastMath.HALF_PI, 0, 0);
-        ringGeom.setLocalTranslation(0, baseHeight + pedestalHeight, 0);
-        displayNode.attachChild(ringGeom);
-
-        // Hauteur totale du piédestal (base + cylindre)
-        float pedestalTopY = baseHeight + pedestalHeight;
-
-        // 🗿 Charger le modèle 3D - DIRECTEMENT SUR LE CYLINDRE
-        try {
-            Spatial statue = assetLoader.getModel(modelKey).clone();
-            statue.setLocalScale(scale);
-            statue.rotate(0, rotation, 0);
-
-            statue.updateModelBound();
-            BoundingBox bounds = (BoundingBox) statue.getWorldBound();
-
-            // Calculer le bas du modèle pour le poser sur le cylindre
-            float modelBottomY = (bounds.getCenter().y - bounds.getYExtent()) * scale;
-            // Position Y = haut du piédestal - bas du modèle
-            float statueY = pedestalTopY - modelBottomY;
-
-//            float offsetX = 0.0f;
-//            float offsetZ = 0.0f;
-            statue.setLocalTranslation(0, statueY, 0);
-            displayNode.attachChild(statue);
-
-            System.out.println("  ✅ " + label + " " + name + " placée sur piédestal (échelle: " + scale + ")");
-
-            // 💡 Éclairage spot dramatique
-            SpotLight statueSpot = new SpotLight();
-            statueSpot.setPosition(new Vector3f(x, ARCH_HEIGHT - 5, z));
-            statueSpot.setDirection(new Vector3f(0, -1, 0));
-            statueSpot.setColor(new ColorRGBA(1f, 0.98f, 0.92f, 1f));
-            statueSpot.setSpotRange(35f);
-            statueSpot.setSpotInnerAngle(15f * FastMath.DEG_TO_RAD);
-            statueSpot.setSpotOuterAngle(35f * FastMath.DEG_TO_RAD);
-            rootNode.addLight(statueSpot);
-
-        } catch (Exception e) {
-            System.err.println("❌ Impossible de charger '" + modelKey + "': " + e.getMessage());
-            e.printStackTrace();
-        }
-
-        displayNode.setLocalTranslation(x, y, z);
-        museumNode.attachChild(displayNode);
-    }
-
-    /**
      * 🖼️ Crée les peintures sur les murs latéraux
      */
     private void createGalleryPaintings() {
         System.out.println("🔨 Installation des tableaux de la galerie...");
-        
+
         float paintingHeight = 5f;
         float paintingWidth = paintingHeight * 0.8f;
         float wallOffset = HALL_WIDTH / 2 - WALL_THICKNESS - 0.3f;
-        
+
         int paintingNum = 31;
-        
+
         // Tableaux mur gauche
         for (int i = 0; i < 4; i++) {
             float z = -30f + i * 18f;
-            createElegantPainting("painting" + paintingNum, -wallOffset, 7f, z, 
-                        paintingWidth, paintingHeight, 90f, "painting" + paintingNum);
+            createElegantPainting("painting" + paintingNum, -wallOffset, 7f, z,
+                    paintingWidth, paintingHeight, 90f, "painting" + paintingNum);
             paintingNum++;
         }
-        
+
         // Tableaux mur droit
         for (int i = 0; i < 4; i++) {
             float z = -30f + i * 18f;
-            createElegantPainting("painting" + paintingNum, wallOffset, 7f, z, 
-                        paintingWidth, paintingHeight, -90f, "painting" + paintingNum);
+            createElegantPainting("painting" + paintingNum, wallOffset, 7f, z,
+                    paintingWidth, paintingHeight, -90f, "painting" + paintingNum);
             paintingNum++;
         }
-        
+
         // Tableaux mur arrière (au-dessus de Ramsès)
         createElegantPainting("painting39", -15f, 10f, -HALL_LENGTH / 2 + WALL_THICKNESS + 0.5f,
-                    paintingWidth * 1.2f, paintingHeight * 1.2f, 0f, "painting39");
+                paintingWidth * 1.2f, paintingHeight * 1.2f, 0f, "painting39");
         createElegantPainting("painting40", 15f, 10f, -HALL_LENGTH / 2 + WALL_THICKNESS + 0.5f,
-                    paintingWidth * 1.2f, paintingHeight * 1.2f, 0f, "painting40");
-        
+                paintingWidth * 1.2f, paintingHeight * 1.2f, 0f, "painting40");
+
         System.out.println("✅ 10 tableaux installés!");
     }
 
@@ -720,7 +742,7 @@ public class ThSceneManager {
      * Crée un tableau élégant avec cadre doré raffiné
      */
     private void createElegantPainting(String name, float x, float y, float z,
-                             float width, float height, float rotationY, String textureKey) {
+                                       float width, float height, float rotationY, String textureKey) {
         Node paintingNode = new Node(name + "_Painting");
 
         // Cadre extérieur doré
@@ -747,24 +769,23 @@ public class ThSceneManager {
         // 🎨 Toile
         Quad canvas = new Quad(width, height);
         Geometry canvasGeom = new Geometry(name + "_canvas", canvas);
-        Material canvasMat = assetLoader.getMaterial("defMat").clone();
-        
+        Material canvasMat = assetLoader.getMaterial("unshMat").clone();
+
         try {
             Texture paintingTex = assetLoader.getTexture(textureKey);
-            // Améliorer la qualité de la texture à distance
             paintingTex.setMinFilter(Texture.MinFilter.Trilinear);
             paintingTex.setMagFilter(Texture.MagFilter.Bilinear);
-            paintingTex.setAnisotropicFilter(8); // Meilleure qualité à distance
-            canvasMat.setTexture("DiffuseMap", paintingTex);
-            canvasMat.setBoolean("UseMaterialColors", true);
-            canvasMat.setColor("Ambient", ColorRGBA.White.mult(1.0f)); // Plus lumineux
-            canvasMat.setColor("Diffuse", ColorRGBA.White); // Blanc pur pour bien voir les textures
+            paintingTex.setAnisotropicFilter(16);
+
+            // IMPORTANT: Unshaded uses "ColorMap", Lighting uses "DiffuseMap"
+            canvasMat.setTexture("ColorMap", paintingTex);
+
         } catch (Exception e) {
             System.err.println("⚠️ Texture non trouvée: " + textureKey);
             canvasMat.setColor("Diffuse", COLOR_WARM_BEIGE);
             canvasMat.setBoolean("UseMaterialColors", true);
         }
-        
+
         canvasGeom.setMaterial(canvasMat);
         canvasGeom.setLocalTranslation(-width / 2, -height / 2, 0.13f);
         paintingNode.attachChild(canvasGeom);
@@ -773,7 +794,7 @@ public class ThSceneManager {
         PointLight paintingLight = new PointLight();
         paintingLight.setPosition(new Vector3f(x, y + height / 2 + 1.5f, z));
         paintingLight.setColor(new ColorRGBA(1f, 0.98f, 0.92f, 1f).mult(1.2f)); // Plus lumineux
-        paintingLight.setRadius(25f); // Rayon augmenté pour visibilité à distance
+        paintingLight.setRadius(30f); // Rayon augmenté pour visibilité à distance
         rootNode.addLight(paintingLight);
 
         paintingNode.setLocalTranslation(x, y, z);
@@ -786,7 +807,7 @@ public class ThSceneManager {
      */
     private void createMuseumLighting() {
         System.out.println("🔨 Éclairage naturel du musée...");
-        
+
         // Lumière ambiante douce et chaude
         AmbientLight ambient = new AmbientLight();
         ambient.setColor(new ColorRGBA(0.75f, 0.73f, 0.70f, 1f));
@@ -803,7 +824,7 @@ public class ThSceneManager {
         fill.setDirection(new Vector3f(0.3f, -0.5f, 0.4f).normalizeLocal());
         fill.setColor(new ColorRGBA(0.9f, 0.92f, 0.98f, 1f).mult(0.3f));
         rootNode.addLight(fill);
-        
+
         System.out.println("✅ Éclairage naturel installé");
     }
 
@@ -812,14 +833,14 @@ public class ThSceneManager {
      */
     private void createDecorations() {
         System.out.println("🔨 Ajout des décorations...");
-        
+
         // Bancs élégants le long de l'allée centrale
         for (int i = 0; i < 4; i++) {
             float z = -25f + i * 15f;
             createBench(-9f, 0, z);
             createBench(9f, 0, z);
         }
-        
+
         System.out.println("✅ Décorations installées");
     }
 
@@ -828,7 +849,7 @@ public class ThSceneManager {
      */
     private void createBench(float x, float y, float z) {
         Node benchNode = new Node("Bench");
-        
+
         // Assise
         Box seat = new Box(2f, 0.15f, 0.6f);
         Geometry seatGeom = new Geometry("BenchSeat", seat);
@@ -839,7 +860,7 @@ public class ThSceneManager {
         seatGeom.setMaterial(seatMat);
         seatGeom.setLocalTranslation(0, 0.5f, 0);
         benchNode.attachChild(seatGeom);
-        
+
         // Pieds
         for (float xOff : new float[]{-1.7f, 1.7f}) {
             Box leg = new Box(0.1f, 0.25f, 0.5f);
@@ -848,7 +869,7 @@ public class ThSceneManager {
             legGeom.setLocalTranslation(xOff, 0.25f, 0);
             benchNode.attachChild(legGeom);
         }
-        
+
         benchNode.setLocalTranslation(x, y, z);
         museumNode.attachChild(benchNode);
     }
@@ -858,29 +879,15 @@ public class ThSceneManager {
      */
     public void loadRobot() {
         System.out.println("🤖 Chargement du robot guide...");
-        
+
         robotManager = new RobotManager(this.assetManager);
         robotManager.setRobot(rootNode, assetLoader);
         robot = robotManager.getRobot();
-        robot.scale(1f);
+        robot.scale(0.8f);
 
-        BoundingBox bbox = (BoundingBox) robot.getWorldBound();
-        float minY = 0.1f + bbox.getYExtent();
-        robot.setLocalTranslation(0, minY, 0);
+        app.getRootNode().attachChild(robot);
 
-        rootNode.attachChild(robot);
-
-        animComposer = robot.getControl(AnimComposer.class);
-        if (animComposer != null) {
-            System.out.println("✅ Animations disponibles : " + animComposer.getAnimClipsNames());
-            if (animComposer.getAnimClipsNames().contains("Idle")) {
-                animComposer.setCurrentAction("Idle");
-            } else {
-                String firstAnim = animComposer.getAnimClipsNames().stream().findFirst().orElse(null);
-                if (firstAnim != null) animComposer.setCurrentAction(firstAnim);
-            }
-        }
-
+        // Add lights specifically for the robot
         DirectionalLight robotLight = new DirectionalLight();
         robotLight.setColor(ColorRGBA.White.mult(1.2f));
         robotLight.setDirection(new Vector3f(-0.5f, -1f, -0.3f).normalizeLocal());
@@ -889,7 +896,7 @@ public class ThSceneManager {
         AmbientLight softAmbient = new AmbientLight();
         softAmbient.setColor(ColorRGBA.White.mult(0.3f));
         robot.addLight(softAmbient);
-        
+
         System.out.println("✅ Robot guide prêt!");
     }
 
@@ -935,126 +942,119 @@ public class ThSceneManager {
     }
 
     public void hideRobot() {
-        robotStayingNearPainting = false;
-        currentActivePainting = null;
 
         if (infoBubbleNode != null) {
             infoBubbleNode.setCullHint(Spatial.CullHint.Always);
         }
         bubbleDisplayTime = 0f; // Reset le timer
-
-        if (animComposer != null) {
-            playAnimation("Idle");
-        }
     }
 
     public void initializeClickDetection() {
         infoBubbleNode = new Node("InfoBubble");
 
-        // Design de la bulle (style élégant doré)
-        Quad shadowQuad = new Quad(7.4f, 2.6f);
-        Geometry shadow = new Geometry("BubbleShadow", shadowQuad);
-        Material shadowMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        shadowMat.setColor("Color", new ColorRGBA(0f, 0f, 0f, 0.5f));
-        shadowMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        shadow.setMaterial(shadowMat);
-        shadow.setLocalTranslation(-3.7f, -0.15f, 0f);
-        infoBubbleNode.attachChild(shadow);
+        float baseW = 4.2f;
+        float baseH = 2.4f;
 
-        Quad outerBorderQuad = new Quad(7.2f, 2.4f);
-        Geometry outerBorder = new Geometry("BubbleOuterBorder", outerBorderQuad);
-        Material outerBorderMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        outerBorderMat.setColor("Color", COLOR_GOLD_ACCENT.mult(0.9f));
-        outerBorderMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        outerBorder.setMaterial(outerBorderMat);
-        outerBorder.setLocalTranslation(-3.6f, -0.1f, 0.005f);
-        infoBubbleNode.attachChild(outerBorder);
+        // ============ COUCHE 1 : CADRE (Anciennement OuterBorder) ============
+        // On ne garde qu'une seule bordure pour définir la forme
+        Quad frameQuad = new Quad(baseW + 0.2f, baseH + 0.2f);
+        Geometry frame = new Geometry("BubbleFrame", frameQuad);
+        Material frameMat = this.assetLoader.getMaterial("unshMat").clone();
+        frameMat.setColor("Color", COLOR_GOLD_ACCENT.mult(0.9f));
+        frameMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
+        frame.setMaterial(frameMat);
+        // Position de base (Z = 0)
+        frame.setLocalTranslation(-(baseW + 0.2f)/2f, -0.1f, 0f);
+        infoBubbleNode.attachChild(frame);
 
-        Quad innerBorderQuad = new Quad(7f, 2.2f);
-        Geometry innerBorder = new Geometry("BubbleInnerBorder", innerBorderQuad);
-        Material innerBorderMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        innerBorderMat.setColor("Color", COLOR_DARK_BRONZE.mult(0.95f));
-        innerBorderMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        innerBorder.setMaterial(innerBorderMat);
-        innerBorder.setLocalTranslation(-3.5f, -0.05f, 0.01f);
-        infoBubbleNode.attachChild(innerBorder);
-
-        Quad bubbleQuad = new Quad(6.8f, 2f);
+        // ============ COUCHE 2 : FOND PRINCIPAL ============
+        Quad bubbleQuad = new Quad(baseW, baseH);
         bubbleBackground = new Geometry("BubbleBackground", bubbleQuad);
-        Material bubbleMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        bubbleMat.setColor("Color", new ColorRGBA(0.12f, 0.10f, 0.08f, 0.95f));
+        Material bubbleMat = this.assetLoader.getMaterial("unshMat").clone();
+        bubbleMat.setColor("Color",  new ColorRGBA(0.12f, 0.10f, 0.08f, 0.95f));
         bubbleMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
         bubbleBackground.setMaterial(bubbleMat);
-        bubbleBackground.setLocalTranslation(-3.4f, 0f, 0.015f);
+        // ✅ Écart de 0.05f pour séparer nettement du cadre et éviter les lignes
+        bubbleBackground.setLocalTranslation(-baseW/2f, 0f, 0.05f);
         infoBubbleNode.attachChild(bubbleBackground);
 
-        Quad highlightQuad = new Quad(6.6f, 0.3f);
-        Geometry highlight = new Geometry("BubbleHighlight", highlightQuad);
-        Material highlightMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        highlightMat.setColor("Color", COLOR_GOLD_ACCENT.mult(0.4f));
-        highlightMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        highlight.setMaterial(highlightMat);
-        highlight.setLocalTranslation(-3.3f, 1.6f, 0.02f);
-        infoBubbleNode.attachChild(highlight);
-
+        // ============ COUCHE 3 : TEXTE (AGRANDI) ============
         BitmapFont font = assetManager.loadFont("Interface/Fonts/Default.fnt");
         bubbleText = new BitmapText(font);
-        bubbleText.setSize(0.22f);
-        bubbleText.setColor(COLOR_GOLD_ACCENT);
-        bubbleText.setText(null);
-        bubbleText.setLocalTranslation(-3.2f, 1.1f, 0.025f);
-        infoBubbleNode.attachChild(bubbleText);
 
+
+        bubbleText.setSize(0.30f);
+        bubbleText.setColor(ColorRGBA.White);
+
+        float padding = 0.35f;
+        bubbleText.setBox(new Rectangle(
+                -baseW/2f + padding,
+                baseH - (padding/2f),
+                baseW - (padding*2),
+                baseH - padding
+        ));
+
+        bubbleText.setAlignment(BitmapFont.Align.Center);
+        bubbleText.setVerticalAlignment(BitmapFont.VAlign.Center);
+
+        bubbleText.setLocalTranslation(0f, 0f, 0.1f);
+
+        infoBubbleNode.attachChild(bubbleText);
         infoBubbleNode.setCullHint(Spatial.CullHint.Always);
         rootNode.attachChild(infoBubbleNode);
-
-        System.out.println("✅ Bulle d'info élégante créée");
     }
 
     public void detectPaintingClick() {
-        CollisionResults results = new CollisionResults();
+        try {
+            CollisionResults results = new CollisionResults();
+            Vector2f screenCenter = new Vector2f(app.getCamera().getWidth() / 2f, app.getCamera().getHeight() / 2f);
 
-        Vector2f screenCenter = new Vector2f(
-                app.getCamera().getWidth() / 2f,
-                app.getCamera().getHeight() / 2f
-        );
+            Vector3f origin = app.getCamera().getWorldCoordinates(screenCenter, 0f);
+            Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f).subtractLocal(origin).normalizeLocal();
 
-        Vector3f origin = app.getCamera().getWorldCoordinates(screenCenter, 0f);
-        Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f)
-                .subtractLocal(origin).normalizeLocal();
+            Ray ray = new Ray(origin, dir);
+            rootNode.collideWith(ray, results);
 
-        Ray ray = new Ray(origin, dir);
-        rootNode.collideWith(ray, results);
+            if (results.size() > 0) {
+                CollisionResult closest = results.getClosestCollision();
+                Geometry geom = closest.getGeometry();
+                String name = geom.getName();
 
-        if (results.size() > 0) {
-            CollisionResult closest = results.getClosestCollision();
-            Geometry geom = closest.getGeometry();
+                if (name.contains("canvas") || name.contains("painting")) {
+                    currentBubbleTargetPos = geom.getWorldTranslation().clone();
 
-            String name = geom.getName();
-            if (name.contains("canvas") || name.contains("painting")) {
-                System.out.println("🖱️ Tableau cliqué : " + name);
+                    String paintingInfo = getPaintingInfo(name);
 
-                if (currentActivePainting != geom) {
-                    robotStayingNearPainting = false;
-                    currentActivePainting = null;
+                    if (paintingInfo == null || paintingInfo.trim().isEmpty()) {
+                        System.err.println("⚠️ ERROR: Could not get painting info from database!");
+                        System.err.println("⚠️ Make sure Docker container is running:");
+                        System.err.println("   docker run --name my-postgres-container -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=tour_3d_db -p 5432:5432 -d postgres");
+                        paintingInfo = "Database connection error. Please check if Docker container is running.";
+                    }
+
+                    // ✅ Ouvrir le panneau de chat
+                    System.out.println("🔍 Checking chatPanelUI: " + (chatPanelUI == null ? "NULL ❌" : "OK ✅"));
+
+                    if (chatPanelUI != null) {
+                        System.out.println("📞 Calling chatPanelUI.show()...");
+                        chatPanelUI.show(paintingInfo);
+                    } else {
+                        System.out.println("⚠️ ERROR: chatPanelUI is NULL! Cannot show panel.");
+                    }
+
+                    showInfoBubble(paintingInfo);
+                } else {
+                    System.out.println("⚠️ Objet cliqué (pas un tableau) : " + name);
                 }
-
-                String paintingInfo = getPaintingInfo(name);
-
-                if (chatPanelUI != null) {
-                    chatPanelUI.show(paintingInfo);
-                }
-
-                showInfoBubble(paintingInfo);
-
-                if (robot != null) {
-                    startRobotWalkTowardsPainting(geom);
-                    playAnimation("Talk");
-                }
+            } else {
+                System.out.println("⚠️ Aucun objet cliqué");
             }
+
+        } catch (Exception e) {
+            System.err.println("❌ CRITICAL ERROR in detectPaintingClick():");
+            e.printStackTrace();
         }
     }
-
     public boolean isLookingAtPainting() {
         CollisionResults results = new CollisionResults();
         Vector2f screenCenter = new Vector2f(
@@ -1110,50 +1110,29 @@ public class ThSceneManager {
     }
 
     public void showRobotSpeech(String text) {
-        if (bubbleText != null) {
-            String display = text.length() > 100 ? text.substring(0, 97) + "..." : text;
-            showInfoBubble(display);
-        }
+        System.out.println("🤖 AI Speech (Audio only): " + text);
     }
 
+    /**
+     * ✅ Affiche la bulle d'information au-dessus du robot
+     */
     private void showInfoBubble(String text) {
         if (bubbleText != null && infoBubbleNode != null) {
             bubbleText.setText(text);
+
+            float readingTime = 1.0f + (text.length() * 0.05f);
+
+            bubbleDisplayTime = Math.min(Math.max(readingTime, 3.0f), 15.0f);
+
             infoBubbleNode.setCullHint(Spatial.CullHint.Never);
-            bubbleDisplayTime = BUBBLE_DURATION;
+
+            System.out.println("💬 Bulle affichée pour " + bubbleDisplayTime + " secondes");
         }
     }
 
-    private void startRobotWalkTowardsPainting(Geometry painting) {
-        if (robot == null) return;
-
-        currentActivePainting = painting;
-        robotStayingNearPainting = true;
-
-        robotStartPosition.set(robot.getLocalTranslation());
-
-        Vector3f paintingPos = painting.getWorldTranslation();
-        Vector3f paintingNormal = painting.getWorldRotation().mult(Vector3f.UNIT_Z);
-
-        robotTargetPosition.set(paintingPos.add(paintingNormal.mult(1.5f)));
-        robotTargetPosition.y = robotStartPosition.y;
-
-        Vector3f direction = paintingPos.subtract(robotStartPosition);
-        direction.y = 0;
-        direction.normalizeLocal();
-
-        float angle = FastMath.atan2(direction.x, direction.z);
-        robot.setLocalRotation(new Quaternion().fromAngleAxis(angle, Vector3f.UNIT_Y));
-
-        robotWalking = true;
-        robotWalkTime = 0f;
-        robotWalkProgress = 0f;
-
-        playAnimation("Walk");
-    }
 
     public void update(float tpf, com.jme3.renderer.Camera cam) {
-        updateRobotWalk(tpf);
+        //  Mettre à jour la position de la bulle
         updateInfoBubblePosition(cam);
         updateBubbleTimer(tpf);
     }
@@ -1166,56 +1145,24 @@ public class ThSceneManager {
                 if (infoBubbleNode != null) {
                     infoBubbleNode.setCullHint(Spatial.CullHint.Always);
                 }
+                System.out.println("⏱️ Temps écoulé - Bulle masquée");
             }
-        }
-    }
-
-    private void updateRobotWalk(float tpf) {
-        if (robotWalking && robot != null) {
-            robotWalkTime += tpf;
-            robotWalkProgress = Math.min(robotWalkTime / ROBOT_WALK_DURATION, 1f);
-
-            Vector3f currentPos = robotStartPosition.interpolateLocal(robotTargetPosition, robotWalkProgress);
-            robot.setLocalTranslation(currentPos);
-
-            if (robotWalkProgress >= 1f) {
-                robotWalking = false;
-                playAnimation("Talk");
-            }
-        }
-
-        if (robotStayingNearPainting && currentActivePainting != null && robot != null && !robotWalking) {
-            Vector3f paintingPos = currentActivePainting.getWorldTranslation();
-            Vector3f paintingNormal = currentActivePainting.getWorldRotation().mult(Vector3f.UNIT_Z);
-
-            Vector3f targetPos = paintingPos.add(paintingNormal.mult(1.5f));
-            targetPos.y = robot.getLocalTranslation().y;
-
-            robot.setLocalTranslation(targetPos);
-
-            Vector3f direction = paintingPos.subtract(targetPos);
-            direction.y = 0;
-            direction.normalizeLocal();
-
-            float angle = FastMath.atan2(direction.x, direction.z);
-            robot.setLocalRotation(new Quaternion().fromAngleAxis(angle, Vector3f.UNIT_Y));
         }
     }
 
     private void updateInfoBubblePosition(com.jme3.renderer.Camera cam) {
-        if (bubbleDisplayTime > 0 && robot != null) {
-            Vector3f robotPos = robot.getWorldTranslation();
-            BoundingBox bbox = (BoundingBox) robot.getWorldBound();
-            float robotHeight = bbox.getYExtent() * 2;
+        if (bubbleDisplayTime > 0 && currentBubbleTargetPos != null) {
+            Vector3f pos = currentBubbleTargetPos.clone();
 
-            Vector3f bubblePos = new Vector3f(
-                    robotPos.x,
-                    robotPos.y + robotHeight + 1.2f,
-                    robotPos.z
-            );
+            pos.y -= 5.8f;
 
-            infoBubbleNode.setLocalTranslation(bubblePos);
+            Vector3f dirToCam = cam.getLocation().subtract(pos).normalizeLocal();
+
+            pos.addLocal(dirToCam.mult(1.8f));
+
+            infoBubbleNode.setLocalTranslation(pos);
             infoBubbleNode.lookAt(cam.getLocation(), Vector3f.UNIT_Y);
+
             infoBubbleNode.setCullHint(Spatial.CullHint.Never);
         } else {
             if (infoBubbleNode != null) {
@@ -1223,4 +1170,5 @@ public class ThSceneManager {
             }
         }
     }
+
 }

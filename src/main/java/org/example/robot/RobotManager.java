@@ -26,10 +26,10 @@ public class RobotManager {
         try{
             robot = assetLoader.getModel("robot");
 
-            Material robotMat = assetLoader.getMaterial("defMat");
-            Texture robotTex = assetLoader.getTexture("robotTexture");
-            robotMat.setTexture("DiffuseMap", robotTex);
-            robot.setMaterial(robotMat);
+//            Material robotMat = assetLoader.getMaterial("robotMat");
+//            Texture robotTex = assetLoader.getTexture("robotTexture");
+//            robotMat.setTexture("DiffuseMap", robotTex);
+//            robot.setMaterial(robotMat);
 
 
             rootNode.attachChild(robot);

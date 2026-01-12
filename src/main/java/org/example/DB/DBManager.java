@@ -14,7 +14,6 @@ public class DBManager {
     public DBManager(){
         this.db = new DBConnection();
         this.conn = this.db.getConnection();
-        
         if (this.conn == null) {
             System.err.println("⚠️ WARNING: Database connection could not be established!");
             System.err.println("⚠️ The application will continue, but database features will not work.");
@@ -25,7 +24,13 @@ public class DBManager {
     }
 
     public void closeConnection(){
-        db.closeConnection(this.conn);
+        try {
+            if(!this.conn.isClosed())
+                db.closeConnection(this.conn);
+        } catch (SQLException e) {
+            System.out.println("✅ Database connection already closed!");
+            e.printStackTrace();
+        }
     }
 
     public void createTable(String query){
@@ -130,7 +135,7 @@ public class DBManager {
             System.err.println("⚠️ Make sure Docker PostgreSQL container is running.");
             return null;
         }
-        
+
         try{
             if (this.stmt != null && !this.stmt.isClosed()) {
                 this.stmt.close();
@@ -148,6 +153,7 @@ public class DBManager {
         }
         return null;
     }
+
 
 
     public void dropTable(String table) {

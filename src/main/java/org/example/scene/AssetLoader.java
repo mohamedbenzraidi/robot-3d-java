@@ -118,42 +118,42 @@ public class AssetLoader extends BaseAppState {
         loadedCount = 0;
 
         new Thread(()-> {
-           for(AssetToLoad asset : assetsToLoad){
-               try{
-                   Object loadedAsset = loadAsset(asset);
+            for(AssetToLoad asset : assetsToLoad){
+                try{
+                    Object loadedAsset = loadAsset(asset);
 
-                   synchronized (loadedAssets){
-                       loadedAssets.put(asset.key, loadedAsset);
-                   }
-                   getApplication().enqueue(() -> {
-                       loadedCount++;
-                       float progress = (float) loadedCount/assetsToLoad.size();
-                       loadingScreen.setProgress(progress);
-                       loadingScreen.setLoadingText("Loading...(" + loadedCount + "/" + assetsToLoad.size() + ")");
+                    synchronized (loadedAssets){
+                        loadedAssets.put(asset.key, loadedAsset);
+                    }
+                    getApplication().enqueue(() -> {
+                        loadedCount++;
+                        float progress = (float) loadedCount/assetsToLoad.size();
+                        loadingScreen.setProgress(progress);
+                        loadingScreen.setLoadingText("Loading...(" + loadedCount + "/" + assetsToLoad.size() + ")");
 
-                       System.out.println("Loaded " + asset.type + " : " + asset.path + " as '" + asset.key + "'");
-                       if (loadedCount == assetsToLoad.size()) {
-                           onLoadingComplete();
-                       }
-                       return null;
-                   });
+                        System.out.println("Loaded " + asset.type + " : " + asset.path + " as '" + asset.key + "'");
+                        if (loadedCount == assetsToLoad.size()) {
+                            onLoadingComplete();
+                        }
+                        return null;
+                    });
 
-               } catch (Exception e) {
-                   System.out.println("Faild to load " + asset.type + " : " + asset.path);
-                   e.printStackTrace();
+                } catch (Exception e) {
+                    System.out.println("Faild to load " + asset.type + " : " + asset.path);
+                    e.printStackTrace();
 
-                   getApplication().enqueue(() -> {
-                       loadedCount++;
-                       float progress = (float) loadedCount/assetsToLoad.size();
-                       loadingScreen.setProgress(progress);
+                    getApplication().enqueue(() -> {
+                        loadedCount++;
+                        float progress = (float) loadedCount/assetsToLoad.size();
+                        loadingScreen.setProgress(progress);
 
-                       if (loadedCount == assetsToLoad.size()) {
-                           onLoadingComplete();
-                       }
-                       return null;
-                   });
-               }
-           }
+                        if (loadedCount == assetsToLoad.size()) {
+                            onLoadingComplete();
+                        }
+                        return null;
+                    });
+                }
+            }
         }, "AssetLoaderThread").start();
     }
 

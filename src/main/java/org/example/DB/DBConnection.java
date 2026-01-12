@@ -6,10 +6,10 @@ import java.sql.SQLException;
 
 
 //runi had Lcommande f terminal ayy terminal makayhemch
-//docker run --name my-postgres-container -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=tour_3d_db -p 5432:5432 -d postgres
+//docker run --name my-postgres-container -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=tour_3d_db -p 5434:5432 -d postgres
 //ghat9ad lik lcontainer ou database tahya
 public class DBConnection {
-    private static final String url = "jdbc:postgresql://localhost:5432/tour_3d_db";
+    private static final String url = "jdbc:postgresql://localhost:5434/tour_3d_db";
     private static final String user = "user";
     private static final String password = "password";
     private static final int MAX_RETRIES = 3;
@@ -18,8 +18,8 @@ public class DBConnection {
     public Connection getConnection(){
         Connection conn = null;
         int attempts = 0;
-        
-        while (attempts < MAX_RETRIES && conn == null) {
+
+        while (attempts < MAX_RETRIES) {
             try {
                 attempts++;
                 System.out.println("🔌 Attempting database connection (attempt " + attempts + "/" + MAX_RETRIES + ")...");
@@ -28,7 +28,7 @@ public class DBConnection {
                 return conn;
             } catch (SQLException e) {
                 System.err.println("❌ Connection attempt " + attempts + " failed: " + e.getMessage());
-                
+
                 if (attempts < MAX_RETRIES) {
                     System.out.println("⏳ Retrying in " + RETRY_DELAY_MS + "ms...");
                     try {
@@ -64,7 +64,7 @@ public class DBConnection {
             System.out.println("⚠️ Cannot close connection: Connection is null");
             return;
         }
-        
+
         try {
             if (!conn.isClosed()) {
                 conn.close();
@@ -77,7 +77,7 @@ public class DBConnection {
             e.printStackTrace();
         }
     }
-    
+
     /**
      * Test if database connection is available
      */

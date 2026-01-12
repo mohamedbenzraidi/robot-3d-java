@@ -8,6 +8,7 @@ import com.jme3.collision.CollisionResult;
 import com.jme3.collision.CollisionResults;
 import com.jme3.font.BitmapFont;
 import com.jme3.font.BitmapText;
+import com.jme3.font.Rectangle;
 import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
 import com.jme3.light.SpotLight;
@@ -47,7 +48,7 @@ public class SceneManager {
     private BitmapText bubbleText;
     private Geometry bubbleBackground;
     private float bubbleDisplayTime = 0f;
-    private static final float BUBBLE_DURATION = 8f; // 8 secondes d'affichage
+    //    private static final float BUBBLE_DURATION = 8f; // 8 secondes d'affichage
     private boolean sceneReady = false;
 
     // ✅ Chat Panel UI
@@ -64,6 +65,7 @@ public class SceneManager {
     // ✅ NOUVEAU : Tableau actif et robot qui reste
     private Geometry currentActivePainting = null;
     private boolean robotStayingNearPainting = false;
+    private Vector3f currentBubbleTargetPos = new Vector3f();
 
 
     // Dimensions de la galerie
@@ -107,11 +109,11 @@ public class SceneManager {
     public void setAssetsToLoad(){
         this.assetLoader
                 .addMaterial("Common/MatDefs/Light/Lighting.j3md", "defMat")
+                .addMaterial("Common/MatDefs/Misc/Unshaded.j3md", "unshMat")
                 .addTexture("Textures/marble_floor.png", "marble_floor")
                 .addTexture("Textures/wall_marble.png", "wall_marble")
                 .addTexture("Textures/decore_marble_floor.png", "decore_marble_floor")
-                .addModel("Models/robot.glb", "robot")
-                .addTexture("Textures/texture.png", "robotTexture");
+                .addModel("Models/Robot/scene.gltf", "robot");
 
         String[] paths_left = {"painting1.jpg",
                 "painting2.jpg",
@@ -511,16 +513,20 @@ public class SceneManager {
         // Toile
         Quad canvas = new Quad(width, height);
         Geometry canvasGeom = new Geometry(name.split("_")[0] + "_canvas", canvas);
-        Material canvasMat = this.assetLoader.getMaterial("defMat").clone();
+        Material canvasMat = this.assetLoader.getMaterial("unshMat").clone();
 
-        // IMPORTANT: Charger votre texture ici
         Texture paintingTex = this.assetLoader.getTexture(Textkey);
-        canvasMat.setTexture("DiffuseMap", paintingTex);
+        paintingTex.setMinFilter(Texture.MinFilter.Trilinear);
+        paintingTex.setMagFilter(Texture.MagFilter.Bilinear);
+        paintingTex.setAnisotropicFilter(16);
 
-        // Couleur temporaire pour démonstration
-        canvasMat.setColor("Diffuse", new ColorRGBA(0.8f, 0.75f, 0.7f, 1f));
-        canvasMat.setColor("Ambient", new ColorRGBA(0.6f, 0.55f, 0.5f, 1f));
-        canvasMat.setBoolean("UseMaterialColors", true);
+        // IMPORTANT: Unshaded uses "ColorMap", Lighting uses "DiffuseMap"
+        canvasMat.setTexture("ColorMap", paintingTex);
+
+//        // Couleur temporaire pour démonstration
+//        canvasMat.setColor("Diffuse", new ColorRGBA(0.8f, 0.75f, 0.7f, 1f));
+//        canvasMat.setColor("Ambient", new ColorRGBA(0.6f, 0.55f, 0.5f, 1f));
+//        canvasMat.setBoolean("UseMaterialColors", true);
 
         canvasGeom.setMaterial(canvasMat);
         canvasGeom.setLocalTranslation(-width / 2, -height / 2, 0.06f);
@@ -631,49 +637,22 @@ public class SceneManager {
     }
 
     public void loadRobot() {
-            robotManager = new RobotManager(this.assetManager);
-            robotManager.setRobot(rootNode, assetLoader);
-            robot = robotManager.getRobot();
-            robot.scale(1f);
+        robotManager = new RobotManager(this.assetManager);
+        robotManager.setRobot(rootNode, assetLoader);
+        robot = robotManager.getRobot();
+        robot.scale(0.8f);
 
+        app.getRootNode().attachChild(robot);
 
+        // Add lights specifically for the robot
+        DirectionalLight robotLight = new DirectionalLight();
+        robotLight.setColor(ColorRGBA.White.mult(1.2f));
+        robotLight.setDirection(new Vector3f(-0.5f, -1f, -0.3f).normalizeLocal());
+        robot.addLight(robotLight);
 
-            BoundingBox bbox = (BoundingBox) robot.getWorldBound();
-            float minY = 0.1f + bbox.getYExtent();
-            robot.setLocalTranslation(0, minY, 0);
-
-            app.getRootNode().attachChild(robot);
-
-            animComposer = robot.getControl(AnimComposer.class);
-            if (animComposer != null) {
-                System.out.println("✅ Animations disponibles : " + animComposer.getAnimClipsNames());
-                if (animComposer.getAnimClipsNames().contains("Idle")) {
-                    animComposer.setCurrentAction("Idle");
-                } else {
-                    String firstAnim = animComposer.getAnimClipsNames().stream().findFirst().orElse(null);
-                    if (firstAnim != null) animComposer.setCurrentAction(firstAnim);
-                }
-            } else {
-                System.out.println("⚠️ Aucun AnimComposer trouvé sur le modèle.");
-            }
-
-            DirectionalLight robotLight = new DirectionalLight();
-            robotLight.setColor(ColorRGBA.White.mult(1.2f));
-            robotLight.setDirection(new Vector3f(-0.5f, -1f, -0.3f).normalizeLocal());
-            robot.addLight(robotLight);
-
-            AmbientLight softAmbient = new AmbientLight();
-            softAmbient.setColor(ColorRGBA.White.mult(0.3f));
-            robot.addLight(softAmbient);
-    }
-
-    public void playAnimation(String animName) {
-        if (animComposer != null && animComposer.getAnimClipsNames().contains(animName)) {
-            animComposer.setCurrentAction(animName);
-            System.out.println("🎥 Animation jouée : " + animName);
-        } else {
-            System.out.println("⚠️ Animation '" + animName + "' introuvable.");
-        }
+        AmbientLight softAmbient = new AmbientLight();
+        softAmbient.setColor(ColorRGBA.White.mult(0.3f));
+        robot.addLight(softAmbient);
     }
 
     /**
@@ -701,25 +680,32 @@ public class SceneManager {
         }
         //  NOUVEAU : Cacher le robot et la bulle quand on ferme le panel
         hideRobot();
+        // Forcer la fermeture de la bulle aussi
+        hideBubble();
     }
+
+    /**
+     * 🔇 Cache la bulle d'info immédiatement
+     */
+    public void hideBubble() {
+        bubbleDisplayTime = 0f;
+        if (infoBubbleNode != null) {
+            infoBubbleNode.setCullHint(Spatial.CullHint.Always);
+        }
+    }
+
+
 
     /**
      * ✅ NOUVEAU : Cache le robot et la bulle
      */
     public void hideRobot() {
-        // Réinitialiser l'état du robot
-        robotStayingNearPainting = false;
-        currentActivePainting = null;
 
         // Cacher la bulle
         if (infoBubbleNode != null) {
             infoBubbleNode.setCullHint(Spatial.CullHint.Always);
         }
 
-        // Arrêter l'animation de parole
-        if (animComposer != null) {
-            playAnimation("Idle");
-        }
 
         System.out.println("🚫 Robot et bulle cachés");
     }
@@ -732,104 +718,70 @@ public class SceneManager {
     /**
      * ✅ Initialise la détection de clic et crée la bulle 3D
      */
-    /**
-     * ✅ Initialise la détection de clic et crée la bulle 3D
-     */
     public void initializeClickDetection() {
-        // ✅ CRÉATION DE LA BULLE 3D AVEC DESIGN MODERNE ET PROFESSIONNEL
         infoBubbleNode = new Node("InfoBubble");
 
-        // ============ COUCHE 1 : OMBRE PORTÉE ============
-        // Ombre plus grande et plus diffuse
-        Quad shadowQuad = new Quad(7.4f, 2.6f);
-        Geometry shadow = new Geometry("BubbleShadow", shadowQuad);
-        Material shadowMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        shadowMat.setColor("Color", new ColorRGBA(0f, 0f, 0f, 0.5f)); // Ombre plus prononcée
-        shadowMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        shadow.setMaterial(shadowMat);
-        shadow.setLocalTranslation(-3.7f, -0.15f, 0f);
-        infoBubbleNode.attachChild(shadow);
+        float baseW = 4.2f;
+        float baseH = 2.4f;
 
-        // ============ COUCHE 2 : BORDURE EXTÉRIEURE ============
-        // Bordure bleu clair pour effet de profondeur
-        Quad outerBorderQuad = new Quad(7.2f, 2.4f);
-        Geometry outerBorder = new Geometry("BubbleOuterBorder", outerBorderQuad);
-        Material outerBorderMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        outerBorderMat.setColor("Color", new ColorRGBA(0.25f, 0.45f, 0.75f, 0.9f)); // Bleu moyen
-        outerBorderMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        outerBorder.setMaterial(outerBorderMat);
-        outerBorder.setLocalTranslation(-3.6f, -0.1f, 0.005f);
-        infoBubbleNode.attachChild(outerBorder);
+        // ============ COUCHE 1 : CADRE (Anciennement OuterBorder) ============
+        // On ne garde qu'une seule bordure pour définir la forme
+        Quad frameQuad = new Quad(baseW + 0.2f, baseH + 0.2f);
+        Geometry frame = new Geometry("BubbleFrame", frameQuad);
+        Material frameMat = this.assetLoader.getMaterial("unshMat").clone();
+        frameMat.setColor("Color", new ColorRGBA(0.25f, 0.45f, 0.75f, 0.8f)); // Bleu clair
+        frameMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
+        frame.setMaterial(frameMat);
+        // Position de base (Z = 0)
+        frame.setLocalTranslation(-(baseW + 0.2f)/2f, -0.1f, 0f);
+        infoBubbleNode.attachChild(frame);
 
-        // ============ COUCHE 3 : BORDURE INTÉRIEURE ============
-        // Bordure bleu plus foncé
-        Quad innerBorderQuad = new Quad(7f, 2.2f);
-        Geometry innerBorder = new Geometry("BubbleInnerBorder", innerBorderQuad);
-        Material innerBorderMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        innerBorderMat.setColor("Color", new ColorRGBA(0.15f, 0.25f, 0.45f, 0.95f)); // Bleu foncé
-        innerBorderMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        innerBorder.setMaterial(innerBorderMat);
-        innerBorder.setLocalTranslation(-3.5f, -0.05f, 0.01f);
-        infoBubbleNode.attachChild(innerBorder);
-
-        // ============ COUCHE 4 : FOND PRINCIPAL ============
-        // Fond bleu foncé élégant (harmonisé avec le panel)
-        Quad bubbleQuad = new Quad(6.8f, 2f);
+        // ============ COUCHE 2 : FOND PRINCIPAL ============
+        Quad bubbleQuad = new Quad(baseW, baseH);
         bubbleBackground = new Geometry("BubbleBackground", bubbleQuad);
-        Material bubbleMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        bubbleMat.setColor("Color", new ColorRGBA(0.08f, 0.12f, 0.20f, 0.98f)); // Même couleur que le panel
+        Material bubbleMat = this.assetLoader.getMaterial("unshMat").clone();
+        bubbleMat.setColor("Color", new ColorRGBA(0.05f, 0.1f, 0.2f, 0.95f)); // Bleu foncé profond
         bubbleMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
         bubbleBackground.setMaterial(bubbleMat);
-        bubbleBackground.setLocalTranslation(-3.4f, 0f, 0.015f);
+        // ✅ Écart de 0.05f pour séparer nettement du cadre et éviter les lignes
+        bubbleBackground.setLocalTranslation(-baseW/2f, 0f, 0.05f);
         infoBubbleNode.attachChild(bubbleBackground);
 
-        // ============ COUCHE 5 : HIGHLIGHT (REFLET) ============
-        // Petit reflet en haut pour effet glossy
-        Quad highlightQuad = new Quad(6.6f, 0.3f);
-        Geometry highlight = new Geometry("BubbleHighlight", highlightQuad);
-        Material highlightMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        highlightMat.setColor("Color", new ColorRGBA(0.4f, 0.6f, 0.9f, 0.3f)); // Bleu clair transparent
-        highlightMat.getAdditionalRenderState().setBlendMode(com.jme3.material.RenderState.BlendMode.Alpha);
-        highlight.setMaterial(highlightMat);
-        highlight.setLocalTranslation(-3.3f, 1.6f, 0.02f);
-        infoBubbleNode.attachChild(highlight);
-
-        // ============ COUCHE 6 : TEXTE ============
-        // Texte avec meilleure lisibilité
+        // ============ COUCHE 3 : TEXTE (AGRANDI) ============
         BitmapFont font = assetManager.loadFont("Interface/Fonts/Default.fnt");
         bubbleText = new BitmapText(font);
-        bubbleText.setSize(0.22f); // Plus grand pour meilleure lisibilité
-        bubbleText.setColor(ColorRGBA.White); // Blanc pur
-        bubbleText.setText(null);
-        bubbleText.setLocalTranslation(-3.2f, 1.1f, 0.025f); // Centré verticalement
+
+
+        bubbleText.setSize(0.30f);
+        bubbleText.setColor(ColorRGBA.White);
+
+        float padding = 0.35f;
+        bubbleText.setBox(new Rectangle(
+                -baseW/2f + padding,
+                baseH - (padding/2f),
+                baseW - (padding*2),
+                baseH - padding
+        ));
+
+        bubbleText.setAlignment(BitmapFont.Align.Center);
+        bubbleText.setVerticalAlignment(BitmapFont.VAlign.Center);
+
+        bubbleText.setLocalTranslation(0f, 0f, 0.1f);
+
         infoBubbleNode.attachChild(bubbleText);
-
-        // ✅ Rendre la bulle invisible au départ
         infoBubbleNode.setCullHint(Spatial.CullHint.Always);
-
         rootNode.attachChild(infoBubbleNode);
-
-        System.out.println("✅ Bulle 3D moderne créée avec 6 couches (ombre, bordures, fond, highlight, texte)");
     }
-
-
     /**
      * ✅ Détecte si on clique sur un tableau (utilise le CENTRE de l'écran)
      */
     public void detectPaintingClick() {
         try {
             CollisionResults results = new CollisionResults();
-
-            // ✅ Utiliser le CENTRE de l'écran au lieu du curseur
-            Vector2f screenCenter = new Vector2f(
-                    app.getCamera().getWidth() / 2f,
-                    app.getCamera().getHeight() / 2f
-            );
-
+            Vector2f screenCenter = new Vector2f(app.getCamera().getWidth() / 2f, app.getCamera().getHeight() / 2f);
 
             Vector3f origin = app.getCamera().getWorldCoordinates(screenCenter, 0f);
-            Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f)
-                    .subtractLocal(origin).normalizeLocal();
+            Vector3f dir = app.getCamera().getWorldCoordinates(screenCenter, 1f).subtractLocal(origin).normalizeLocal();
 
             Ray ray = new Ray(origin, dir);
             rootNode.collideWith(ray, results);
@@ -837,22 +789,13 @@ public class SceneManager {
             if (results.size() > 0) {
                 CollisionResult closest = results.getClosestCollision();
                 Geometry geom = closest.getGeometry();
-
                 String name = geom.getName();
+
                 if (name.contains("canvas") || name.contains("painting")) {
-                    System.out.println("🖱️ Tableau cliqué : " + name);
+                    currentBubbleTargetPos = geom.getWorldTranslation().clone();
 
-                    // ✅ Réinitialiser l'ancien tableau si changement
-                    if (currentActivePainting != geom) {
-                        System.out.println("🔄 Changement de tableau - Réinitialisation");
-                        robotStayingNearPainting = false;
-                        currentActivePainting = null;
-                    }
-
-                    // ✅ Obtenir les infos du tableau
                     String paintingInfo = getPaintingInfo(name);
 
-                    // ✅ VÉRIFIER SI paintingInfo EST NULL (database error)
                     if (paintingInfo == null || paintingInfo.trim().isEmpty()) {
                         System.err.println("⚠️ ERROR: Could not get painting info from database!");
                         System.err.println("⚠️ Make sure Docker container is running:");
@@ -862,6 +805,7 @@ public class SceneManager {
 
                     // ✅ Ouvrir le panneau de chat
                     System.out.println("🔍 Checking chatPanelUI: " + (chatPanelUI == null ? "NULL ❌" : "OK ✅"));
+
                     if (chatPanelUI != null) {
                         System.out.println("📞 Calling chatPanelUI.show()...");
                         chatPanelUI.show(paintingInfo);
@@ -869,25 +813,17 @@ public class SceneManager {
                         System.out.println("⚠️ ERROR: chatPanelUI is NULL! Cannot show panel.");
                     }
 
-                    // ✅ Afficher la bulle d'information
                     showInfoBubble(paintingInfo);
-
-                    // ✅ Faire marcher le robot vers le tableau
-                    if (robot != null) {
-                        startRobotWalkTowardsPainting(geom);
-                        playAnimation("Talk"); // Animation de parole
-                    }
-
                 } else {
                     System.out.println("⚠️ Objet cliqué (pas un tableau) : " + name);
                 }
             } else {
                 System.out.println("⚠️ Aucun objet cliqué");
             }
+
         } catch (Exception e) {
             System.err.println("❌ CRITICAL ERROR in detectPaintingClick():");
             e.printStackTrace();
-            // Don't crash the app, just log the error
         }
     }
 
@@ -966,16 +902,11 @@ public class SceneManager {
         }
     }
 
-
     /**
      * ✅ Affiche la réponse de l'IA dans la bulle du robot
      */
     public void showRobotSpeech(String text) {
-        if (bubbleText != null) {
-            // Couper le texte s'il est trop long pour la bulle
-            String display = text.length() > 100 ? text.substring(0, 97) + "..." : text;
-            showInfoBubble(display);
-        }
+        System.out.println("🤖 AI Speech (Audio only): " + text);
     }
 
     /**
@@ -984,56 +915,19 @@ public class SceneManager {
     private void showInfoBubble(String text) {
         if (bubbleText != null && infoBubbleNode != null) {
             bubbleText.setText(text);
+
+            float readingTime = 1.0f + (text.length() * 0.05f);
+
+            bubbleDisplayTime = Math.min(Math.max(readingTime, 3.0f), 15.0f);
+
             infoBubbleNode.setCullHint(Spatial.CullHint.Never);
-            bubbleDisplayTime = BUBBLE_DURATION; // Réinitialiser à 2 secondes
-            System.out.println("💬 Bulle affichée pour 2 secondes : " + text);
+
+            System.out.println("💬 Bulle affichée pour " + bubbleDisplayTime + " secondes");
         }
     }
 
-    /**
-     * ✅ Démarre le mouvement du robot vers le tableau
-     */
-    private void startRobotWalkTowardsPainting(Geometry painting) {
-        if (robot == null) return;
 
-        // ✅ Sauvegarder le tableau actif
-        currentActivePainting = painting;
-        robotStayingNearPainting = true;
-
-        robotStartPosition.set(robot.getLocalTranslation());
-
-        // Calculer la position cible (1.5 mètres devant le tableau)
-        Vector3f paintingPos = painting.getWorldTranslation();
-        Vector3f paintingNormal = painting.getWorldRotation().mult(Vector3f.UNIT_Z);
-
-        robotTargetPosition.set(paintingPos.add(paintingNormal.mult(1.5f)));
-        robotTargetPosition.y = robotStartPosition.y; // Garder la même hauteur
-
-        // Orienter le robot vers le tableau (VERTICAL uniquement)
-        Vector3f direction = paintingPos.subtract(robotStartPosition);
-        direction.y = 0; // Ignorer la composante verticale pour rester droit
-        direction.normalizeLocal();
-
-        float angle = FastMath.atan2(direction.x, direction.z);
-        robot.setLocalRotation(new Quaternion().fromAngleAxis(angle, Vector3f.UNIT_Y));
-
-        // Démarrer l'animation de marche
-        robotWalking = true;
-        robotWalkTime = 0f;
-        robotWalkProgress = 0f;
-
-        playAnimation("Walk");
-
-        System.out.println("🚶 Robot commence à marcher vers le tableau - RESTERA près du tableau");
-    }
-
-    /**
-     * ✅ Méthode update à appeler depuis JmeApp.simpleUpdate()
-     */
     public void update(float tpf, com.jme3.renderer.Camera cam) {
-        //  Gérer le mouvement du robot vers le tableau
-        updateRobotWalk(tpf);
-
         //  Mettre à jour la position de la bulle
         updateInfoBubblePosition(cam);
         updateBubbleTimer(tpf);
@@ -1044,86 +938,35 @@ public class SceneManager {
             bubbleDisplayTime -= tpf;
 
             if (bubbleDisplayTime <= 0) {
-                // Cacher la bulle après 2 secondes
                 if (infoBubbleNode != null) {
                     infoBubbleNode.setCullHint(Spatial.CullHint.Always);
                 }
-                System.out.println("⏱️ Bulle cachée après 2 secondes");
+                System.out.println("⏱️ Temps écoulé - Bulle masquée");
             }
         }
     }
 
     /**
-     * ✅ Met à jour le mouvement du robot pendant qu'il marche
-     */
-    private void updateRobotWalk(float tpf) {
-        if (robotWalking && robot != null) {
-            robotWalkTime += tpf;
-            robotWalkProgress = Math.min(robotWalkTime / ROBOT_WALK_DURATION, 1f);
-
-            // Interpolation linéaire entre position de départ et cible
-            Vector3f currentPos = robotStartPosition.interpolateLocal(robotTargetPosition, robotWalkProgress);
-            robot.setLocalTranslation(currentPos);
-
-            // Fin du mouvement
-            if (robotWalkProgress >= 1f) {
-                robotWalking = false;
-                playAnimation("Talk"); // Revenir à l'animation de parole
-                System.out.println("✅ Robot arrivé - RESTE près du tableau");
-            }
-        }
-
-        // ✅ NOUVEAU : Garder le robot près du tableau actif
-        if (robotStayingNearPainting && currentActivePainting != null && robot != null && !robotWalking) {
-            // Positionner le robot devant le tableau
-            Vector3f paintingPos = currentActivePainting.getWorldTranslation();
-            Vector3f paintingNormal = currentActivePainting.getWorldRotation().mult(Vector3f.UNIT_Z);
-
-            Vector3f targetPos = paintingPos.add(paintingNormal.mult(1.5f));
-            targetPos.y = robot.getLocalTranslation().y;
-
-            robot.setLocalTranslation(targetPos);
-
-            // ✅ CORRECTION : Garder le robot VERTICAL (pas incliné)
-            // Calculer seulement la rotation Y (yaw) pour regarder le tableau
-            Vector3f direction = paintingPos.subtract(targetPos);
-            direction.y = 0; // Ignorer la composante verticale
-            direction.normalizeLocal();
-
-            // Calculer l'angle de rotation autour de l'axe Y
-            float angle = FastMath.atan2(direction.x, direction.z);
-            robot.setLocalRotation(new Quaternion().fromAngleAxis(angle, Vector3f.UNIT_Y));
-        }
-    }
-
-    /**
-     * ✅ Met à jour la position de la bulle pour qu'elle suive le robot
+     * ✅ Positionne la bulle SOUS le tableau cliqué et face à la caméra
      */
     private void updateInfoBubblePosition(com.jme3.renderer.Camera cam) {
-        // ✅ Afficher la bulle seulement si le timer est actif
-        if (bubbleDisplayTime > 0 && robot != null) {
-            // ✅ Positionner la bulle AU-DESSUS du robot
-            Vector3f robotPos = robot.getWorldTranslation();
-            BoundingBox bbox = (BoundingBox) robot.getWorldBound();
-            float robotHeight = bbox.getYExtent() * 2;
+        if (bubbleDisplayTime > 0 && currentBubbleTargetPos != null) {
+            Vector3f pos = currentBubbleTargetPos.clone();
 
-            Vector3f bubblePos = new Vector3f(
-                    robotPos.x,
-                    robotPos.y + robotHeight + 1.2f,
-                    robotPos.z
-            );
+            pos.y -= 3.2f;
 
-            infoBubbleNode.setLocalTranslation(bubblePos);
+            Vector3f dirToCam = cam.getLocation().subtract(pos).normalizeLocal();
 
-            // ✅ Orienter la bulle vers la caméra (billboard effect)
+            pos.addLocal(dirToCam.mult(1.8f));
+
+            infoBubbleNode.setLocalTranslation(pos);
             infoBubbleNode.lookAt(cam.getLocation(), Vector3f.UNIT_Y);
-            infoBubbleNode.setCullHint(Spatial.CullHint.Never); // Visible
+
+            infoBubbleNode.setCullHint(Spatial.CullHint.Never);
         } else {
-            // Cacher la bulle si le timer est écoulé
             if (infoBubbleNode != null) {
                 infoBubbleNode.setCullHint(Spatial.CullHint.Always);
             }
         }
     }
-
 }
